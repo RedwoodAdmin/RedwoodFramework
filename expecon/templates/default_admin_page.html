@@ -1,0 +1,45 @@
+{% autoescape off %}{% load verbatim %}<!DOCTYPE HTML>
+<html>
+  <head>
+		<title>{{ name }} Admin</title>{% verbatim %}
+		<script type="text/javascript" src="{{ STATIC_URL }}js/jquery.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}js/jquery.cookie.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}js/redwood.js"></script>
+		<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}css/bootstrap.min.css"></link>
+    <script type="text/javascript">
+			{{ js }}
+		</script>
+		<style type="text/css">
+			{{ css }}
+		</style>
+	</head>
+	<body>
+    <div class="container" style="margin-top: 50px">
+      <div class="clearfix">
+        <a class="pull-right" href="admin/payouts">View Payouts</a>
+      </div>
+      <table id="subject-list" class="table table-striped" style="min-height: 200px;display: block;">
+        <tr><th>ID</th><th>Group</th><th>Period</th></tr>
+      </table>
+      <div id="admin-control">
+        <form class="well form-inline">
+          <button id="start-session" class="btn btn-primary">Start Session</button>
+          <label class="offset1">
+            Groupsize:
+            <input id="groupsize" style="width: 25pt;" type="number" min="1" value="1" />
+            <input id="regroup" class="btn span1" value="Group" />
+          </label>
+          <div class="pull-right">
+            <button id="archive" class="btn">Archive Session</button>
+            <a id="download" class="btn" href="admin/download">Download Data</a>
+            <button id="reset-session" class="btn btn-danger">Reset Session</button>
+            <span id="router-status" class="badge badge-important">Router: Disconnected</span>
+          </div>
+        </form>
+      </div>
+      <input type="file" data-load-config />
+      <table class="config table table-striped table-condensed">
+      </table>
+    </div>
+	</body>
+</html>{% endverbatim %}{% endautoescape %}

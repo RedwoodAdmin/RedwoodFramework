@@ -1,0 +1,17 @@
+{% autoescape off %}{% load verbatim %}<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>{{ name }}</title>{% verbatim %}
+		<script type="text/javascript" src="{{ STATIC_URL }}js/jquery.min.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}js/redwood.js"></script>
+		<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}css/bootstrap.min.css"></link>
+		<script type="text/javascript">
+			{{ js }}
+		</script>
+		<style type="text/css">
+			{{ css }}
+		</style>
+	</head>
+	<body>
+	</body>
+</html>{% endverbatim %}{% endautoescape %}

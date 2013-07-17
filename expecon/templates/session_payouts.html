@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script type="text/javascript" src="{{ STATIC_URL }}js/jquery.min.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}js/redwood.js"></script>
+		<link rel="stylesheet" href="{{ STATIC_URL }}css/bootstrap.css"></link>
+		<script type="text/javascript">
+			$(function() {
+				$("tr").hover(function() {
+					$(this).find("td span").removeClass("hide");
+				}, function() {
+					$(this).find("td:not(:first-child):not(:last-child) span").addClass("hide");
+				});
+				r.recv("__register__", function(msg) {
+					$("table tbody").append($("<tr>").addClass("subject-"+msg.Sender).append(
+						$("<td>").text(msg.Sender).after(
+						$("<td>").text("0").after(
+						$("<td>").text("0").after(
+						$("<td>").text("1").after(
+						$("<td>").text("0").after(
+						$("<td>").text("0").after(
+						$("<td>").text("0")))))))));
+				});
+				
+				var period_points = {};
+				var conversion_rates = {};
+				var show_up_fees = {};
+				var paid = {};
+				var update_payouts = function(user_id) {
+					var total = 0;
+					var total_paid = 0;
+					for (var period in period_points[user_id]) {
+						var points = period_points[user_id][period];
+						total += points;
+						if (paid[user_id] !== undefined && paid[user_id][period]) {
+							total_paid += points;
+						}
+					}
+					$("tr.subject-"+user_id+" :nth-child(2)").text(total.toFixed(2));
+					$("tr.subject-"+user_id+" :nth-child(3)").text(total_paid.toFixed(2));
+					var conversion_rate = 1;
+					if (conversion_rates[user_id] !== undefined) {
+						conversion_rate = conversion_rates[user_id];
+					}
+					$("tr.subject-"+user_id+" :nth-child(4)").text(conversion_rate.toFixed(2));
+					var base_pay = total_paid * conversion_rate;
+					$("tr.subject-"+user_id+" :nth-child(5)").text(base_pay.toFixed(2));
+					var show_up_fee = 0;
+					if (show_up_fees[user_id] !== undefined) {
+						show_up_fee = show_up_fees[user_id];
+					}
+					$("tr.subject-"+user_id+" :nth-child(6)").text(show_up_fee.toFixed(2));
+					var total_pay = base_pay + show_up_fee;
+					$("tr.subject-"+user_id+" :nth-child(7)").text(total_pay.toFixed(2));
+				};
+				r.recv("__set_points__", function(msg) {
+					if (period_points[msg.Sender] === undefined) {
+						period_points[msg.Sender] = {};
+					}
+					period_points[msg.Sender][msg.Value.period] = msg.Value.points;
+					update_payouts(msg.Sender);
+				});
+				r.recv("__set_conversion_rate__", function(msg) {
+					conversion_rates[msg.Sender] = msg.Value.conversion_rate;
+					update_payouts(msg.Sender);
+				});
+				r.recv("__set_show_up_fee__", function(msg) {
+					show_up_fees[msg.Sender] = msg.Value.show_up_fee;
+					update_payouts(msg.Sender);
+				});
+				r.recv("__mark_paid__", function(msg) {
+					if (paid[msg.Sender] === undefined) {
+						paid[msg.Sender] = {};
+					}
+					paid[msg.Sender][msg.Value.period] = msg.Value.paid;
+					update_payouts(msg.Sender);
+				});
+    	});
+		</script>
+		<style>
+			.container {
+				margin-top: 50px;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<table class="table table-striped table-bordered">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>All Points</th>
+						<th>Paid Points</th>
+						<th>Conversion Rate</th>
+						<th>Base Pay</th>
+						<th>Show-Up Fee</th>
+						<th>Total Payout</th>
+					</tr>
+				</thead>
+				<tbody>
+				</tbody>
+			</table>
+		</div>
+	</body>
+</html>

@@ -1,0 +1,6 @@
+{% load verbatim %}{% verbatim %}.badge {
+  font-size: 13px;
+  line-height: 18px;
+  padding: 4px 10px 4px;
+  vertical-align: middle;
+}{% endverbatim %}

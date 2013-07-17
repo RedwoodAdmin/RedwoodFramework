@@ -1,0 +1,34 @@
+{% extends "admin/expecon/change_form.html" %}
+{% load i18n %}
+
+{% block object-tools %}
+	{{ block.super }}
+	<div style="border-top: 1px solid #CCC; border-right: 1px solid #CCC; border-left: 1px solid #CCC;">
+		<ul style="margin: 0;">
+			<li style="list-style: none; float: left; border-right: 1px solid #CCC;">
+				<form">
+				<form action="clone" method="POST">
+					{% csrf_token %}
+					<button class="btn" type="submit">Clone Experiment</button>
+				</form>
+			</li>
+			<li style="list-style: none; float: left; border-right: 1px solid #CCC;">
+				<form action="download" method="GET">
+					{% csrf_token %}
+					<button class="btn" type="submit">Download Experiment</button>
+				</form>
+			</li>
+			<li style="list-style: none; float: left;">
+				<form
+					action="upload"
+					method="POST"
+					enctype="multipart/form-data">
+					{% csrf_token %}
+					<input name="file" type="file" />
+					<button class="btn" type="submit">Upload Experiment</button>
+				</form>
+			</li>
+		</ul>
+		<div style="clear: both;"></div>
+	</div>
+{% endblock %}

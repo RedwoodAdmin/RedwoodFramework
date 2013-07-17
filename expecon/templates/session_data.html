@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script type="text/javascript" src="{{ STATIC_URL }}js/jquery.min.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}flot/jquery.flot.min.js"></script>
+		<script src="{{STATIC_URL}}js/shortcut.js" type="text/javascript"></script>
+		<script src="{{ STATIC_URL }}js/redwood.js"></script>
+		<link	rel="stylesheet" type="text/css" href="{{ STATIC_URL }}css/bootstrap.css"></link>
+		<link href="{{ STATIC_URL }}ace/ace_editor.css" type="text/css" media="all" rel="stylesheet" />
+		<script type="text/javascript">
+			django = {
+				jQuery: $
+			};
+			function save_and_replot() {
+				$.post("", $("form").serialize());
+				replot();
+				$(".alert p").text("Saved");
+			};
+			function replot() {
+				var dataset = [];
+				try {
+					eval($("#script").val());
+					$(".alert p").text("No errors");
+				} catch (err) {
+					$(".alert p").text(err);
+				}
+				$.plot($("#plot"), dataset);
+			}
+			$(function() {
+				$.plot($("#plot"), []);
+				shortcut.add("Meta+S", save_and_replot);
+				shortcut.add("Ctrl+S", save_and_replot);
+				r.finish_sync(replot);
+				setInterval(replot, 1000);
+    	});
+		</script>
+		<script type="text/javascript" src="{{ STATIC_URL }}ace/ace.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}ace/ace_editor.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}ace/mode-javascript.js"></script>
+		<style>
+			.container-fluid {
+				margin-top: 20px;
+			}
+			.plot {
+  			width: 48%;
+  			height: 600px;
+  			float: left;
+			}
+			.ace-editor-widget {
+				max-width: 52%;
+				float: left;
+			}
+			.ace_editor {
+    		height: 400px;
+				max-width: 100%;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container-fluid">
+			<div class="ace-editor-widget">
+		  	<div id="ace_editor" class="ace_editor" data-target="script" data-mode="javascript">{{ session.experiment.rt_js }}</div>
+		  	<form action="" method="post">
+		  		<textarea id="script" style="display:none;" name="script">{{ session.experiment.rt_js }}</textarea> 	
+		  	</form>
+				<div class="alert">
+					<p>No errors</p>
+				</div>
+			</div>
+			<div id="plot" class="plot"></div>
+		</div>
+	</body>
+</html>
