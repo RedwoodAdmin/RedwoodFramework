@@ -55,6 +55,7 @@ class Experiment(models.Model):
 		clone.page_set.all().delete()
 		for page in self.page_set.all():
 			page.clone(clone)
+		clone.save()
 		return clone
 	
 class Session(models.Model):
