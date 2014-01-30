@@ -3,9 +3,6 @@ var RedwoodAdmin = {
 	_initialize: function() {
 		var ra = this;
 		ra.user_id = rw.user_id;
-		ra.subjects = rw.subjects;
-		ra.periods = rw.periods;
-		ra.groups = rw.groups;
 		ra.set_period = rw.set_period;
 		ra.set_group = rw.set_group;
 		ra.on_load = rw.on_load;
@@ -13,16 +10,11 @@ var RedwoodAdmin = {
 		ra._event_handlers = {};
 		ra._msg_handlers = {};
 		
-		ra.on_router_connected = function(f) {
-			ra.recv("__router_status__", function() {
-				f(rw.__ws__.readyState === WebSocket.OPEN);
-			});
-		};
-		
 		ra.get_config = function(period, group) {
 			for(var i = 0; i < rw.configs.length; i++) {
 				var config = rw.configs[i];
-				if(config.period == period && config.group == group) {
+				if(((!config.period && i + 1 == period) || config.period == period) //match period
+						&& (!config.group || config.group == group)) { //match group
 					return config;
 				}
 			}
@@ -52,6 +44,10 @@ var RedwoodAdmin = {
 		
 		ra.send = function(key, value, period, group) {
 			ra.__send__(key, value, ra.user_id, period, group);
+		};
+		
+		ra.set = function(user_id, key, value) {
+			ra.__send__(key, value, user_id, 0, rw.groups[user_id]);
 		};
 		
 		ra.on = function(eventName, f) {
@@ -92,6 +88,19 @@ var RedwoodAdmin = {
 			}
 		};
 		
+		ra.on_router_connected = function(f) {
+			ra.recv("__router_status__", function() {
+				f(rw.__ws__.readyState === WebSocket.OPEN);
+			});
+		};
+		
+		ra.on_router_connected(function(isConnected) {
+			if(isConnected) {
+				ra.subjects = rw.subjects;
+				ra.periods = rw.periods;
+				ra.groups = rw.groups;
+			}
+		});
 		
 		ra.on_set_config = function(f) {
 			rw.recv_self("__set_config__", function(msg) {
@@ -124,7 +133,7 @@ var RedwoodAdmin = {
 			ra.recv("__set_period__", function(sender, value) {
 				for(var i = 0, l = rw.configs.length; i < l; i++) {
 					var config = rw.configs[i];
-					if (config.period === value.period) {
+					if (config.period === value.period || (isNullOrUndefined(config.period) && i === value.period - 1)) {
 						f(sender, value.period);
 					}
 				}
@@ -153,6 +162,12 @@ var RedwoodAdmin = {
 				ra._when_live_callbacks[key]();
 			}
 		});
+		
+		ra.start_session = function() {
+			for(var i = 0; i < ra.subjects.length; i++) {
+				ra.set_period(0, ra.subjects[i]); //set all subjects to period 0
+			}
+		};
 	},
 	create: function(){} //to be overridden
 };

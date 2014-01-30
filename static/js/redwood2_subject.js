@@ -4,10 +4,10 @@ var RedwoodSubject = {
 		var rs = this;
 		rs.user_id = rw.user_id;
 		rs.subjects = [];
+		rs.subject = {};
 		rs.points = 0;
 		rs.accumulated_points = 0;
-		rs.get_period = rw.get_period;
-		rs.on_load = rw.on_load;
+		rs.is_realtime = false;
 		rs._messaging_enabled = false;
 		
 		rs._send_queue = [];
@@ -15,12 +15,14 @@ var RedwoodSubject = {
 		rs._msg_handlers = {};
 		
 		rs._handle_event_msg = function(msg) {
-			if(rw.__sync__.in_progress) {
+			if(msg.Period != rw.periods[msg.Sender]) return;
+			//if(rw.__sync__.in_progress) {
 				rs._broadcast_event(msg.Key, msg.Value);
-			}
+			//}
 		};
 		
 		rs._handle_msg = function(msg) {
+			if(msg.Sender != "admin" && msg.Period != rw.periods[msg.Sender]) return;
 			if(rs._msg_handlers[msg.Key]) {
 				for(var i = 0, l = rs._msg_handlers[msg.Key].length; i < l; i++) {
 					rs._msg_handlers[msg.Key][i](msg.Sender, msg.Value);
@@ -40,24 +42,29 @@ var RedwoodSubject = {
 			rs._messaging_enabled = true;
 			var message = rs._send_queue.shift();
 			while(message) {
-				rs._send(message.key, message.value);
+				rw.send(message.key, message.value, message.opts);
 				message = rs._send_queue.shift();
 			}
 		};
 		
-		rs._send = function(key, value) {
+		rs._send = function(key, value, opts) {
+			opts = opts || {};
+			if(isNullOrUndefined(opts.period)) opts.period = rs.period;
+			if(isNullOrUndefined(opts.group)) opts.group = rs._group;
+			if(isNullOrUndefined(opts.sender)) opts.sender = rs.user_id;
+			
 			if(rs._messaging_enabled) {
-				rw.send(key, value, { period: rs.period, group: rs.group, sender: rs.user_id });
+				rw.send(key, value, opts);
 			} else {
-				rs._send_queue.push({key: key, value: value});
+				rs._send_queue.push({key: key, value: value, opts: opts});
 			}
 		};
 		
 		rs.trigger = function(eventName, value) {
 			rs._send(eventName, value);
-			if(!rw.__sync__.in_progress) {
+			/*if(!rw.__sync__.in_progress) {
 				rs._broadcast_event(eventName, value);
-			}
+			}*/
 		};
 		
 		rs.on = function(eventName, f) {
@@ -80,8 +87,8 @@ var RedwoodSubject = {
 			rs._msg_handlers[key].push(f);
 		};
 		
-		rw.recv_self("__set_group__", function(msg) {
-			rs.group = msg.Value.group;
+		rs.recv(rw.KEY.__set_config__, function(sender, value) {
+			rs.configs = rw.configs;
 		});
 		
 		rw.recv_self("__set_period__", function(msg) {
@@ -89,13 +96,15 @@ var RedwoodSubject = {
 			rs.config = {};
 			for(var i = 0, l = rw.configs.length; i < l; i++) {
 				var config = rw.configs[i];
-				if (config.period === rs.period) {
-					if (config.group == 0 || config.group == rs.group) {
+				if ((!config.period && rs.period == i + 1) || config.period === rs.period) {
+					if (!config.group || config.group == rs._group) {
 						rs.config = config;
 					}
 				}
 			}
-			if(Object.size(rs.config) === 0) {
+			if(rs.period === 0) {
+				rw.set_page("Wait", rs.user_id);
+			} else if(Object.size(rs.config) === 0) {
 				rw.set_page("Finish", rs.user_id);
 			} else {
 				rw.set_page("Start", rs.user_id);
@@ -111,13 +120,18 @@ var RedwoodSubject = {
 		};
 		
 		rs.on("__set_points__", function(value) {
-			rs.accumulated_points += (value.points - rs.points);
+			rs.subject[rs.user_id].accumulated_points += (value.points - rs.points);
+			rs.accumulated_points = rs.subject[rs.user_id].accumulated_points;
+			rs.subject[rs.user_id].points = value.points;
 			rs.points = value.points;
+			
+			$("[name='data-total-points']").text(rs.accumulated_points.toFixed(2));
+			$("[name='data-period-points']").text(rs.points.toFixed(2));
 		});
 		
 		rs.recv("__set_points__", function(sender, value) {
-			rs.subject_by_id(sender).accumulated_points += (value.points - rs.subject_by_id(sender).points);
-			rs.subject_by_id(sender).points = value.points;
+			rs.subject[sender].accumulated_points += (value.points - rs.subject[sender].points);
+			rs.subject[sender].points = value.points;
 		});
 		
 		rs.on_points_changed = function(f) {
@@ -131,12 +145,16 @@ var RedwoodSubject = {
 			});
 		};
 		
+		rs.set = function(key, value) {
+			rs._send(key, value, {period: 0});
+		};
+		
 		rs.save = function(key, value) {
 			rs._send(key, value);
 		};
 		rs.retrieve = function(key, f) {
-			rs.retrieveMany([key], [rs.user_id], function(results) {
-				f(results[key][rs.user_id]);
+			rs.retrieveMany([key], function(results) {
+				f(results[key]);
 			});
 		};
 		rs.retrieveMany = function(key_array, f) {
@@ -159,33 +177,48 @@ var RedwoodSubject = {
 						results[key_array[i]][user_id_array[j]] = null;
 					}
 				}
-				var period = (rs.period > 1 ? rs.period - 1 : rs.period);
-				rw.get_period(period, function (m) {
-					var q = m.Value;
-					for(var i = 0, l = q.length; i < l; i++) {
-						var msg = q[i];
-						if(user_id_array.indexOf(msg.Sender) > -1 && key_array.indexOf(msg.Key) > -1) {
-							results[msg.Key][msg.Sender] = msg.Value;
+				if(rs.period > 1) {
+					rw.get_period(rs.period - 1, function (m) {
+						var q = m.Value;
+						for(var i = 0, l = q.length; i < l; i++) {
+							var msg = q[i];
+							if(user_id_array.indexOf(msg.Sender) > -1 && key_array.indexOf(msg.Key) > -1) {
+								results[msg.Key][msg.Sender] = msg.Value;
+							}
 						}
-					}
+						rs.save("_rs_retrieve", results);
+					});
+				} else {
 					rs.save("_rs_retrieve", results);
-				});
+				}
 			}
 		};
 		
-		
 		rw.recv_self("_rs_retrieve", function(msg) {
+			if(msg.Period != rw.periods[msg.Sender]) return;
 			var f = rs._retrieve_callbacks.shift();
 			f(msg.Value);
 		});
 		
 		rs.next_period = function(delay_secs) {
+			delay_secs = delay_secs || 0;
 			setTimeout(function(){rs.trigger("_next_period");}, delay_secs * 1000);
 		};
 		
 		rs.on("_next_period", function() {
-			rs.save("_accumulated_points", rs.accumulated_points);
+			rs.set("_accumulated_points", rs.accumulated_points);
 			rw.set_period(rs.period + 1);
+		});
+		
+		rs.finish = function(delay_secs) {
+			delay_secs = delay_secs || 0;
+			setTimeout(function(){rs.trigger("_finish");}, delay_secs * 1000);
+		};
+		
+		rs.on("_finish", function() {
+			rs._send("_accumulated_points", rs.accumulated_points, {period: rs.config.length}); //THIS LINE SHOULD BE REMOVED (NEED TO CHANGE YORAM'S ULTIMATUM GAME FIRST)
+			rs.set("_accumulated_points", rs.accumulated_points);
+			rw.set_period(rw.configs.length + 1);
 		});
 		
 		rs._when_live_callbacks = {};
@@ -202,35 +235,113 @@ var RedwoodSubject = {
 		rs.cancel = function(key) {
 			rs.trigger("_cancel_" + key);
 		};
+		
 		rw.on_sync_complete(function() {
 			for(var key in rs._when_live_callbacks) {
 				rs._when_live_callbacks[key]();
 			}
 		});
 		
-		rw.recv_subjects("__register__", function(msg) {
+		rs._scheduled_callbacks = {};
+		rs.schedule = function(f, delay_ms) {
+			delay_ms = delay_ms || 0;
+			var key = Object.size(rs._scheduled_callbacks);
+			if(rw.__sync__.in_progress) {
+				rs._scheduled_callbacks[key] = {f: f, delay: delay_ms};
+				rs.on("_cancel_" + key, function(){
+					delete rs._scheduled_callbacks[key];
+				});
+			} else {
+				setTimeout(function() {
+					f();
+					//rs.trigger("_cancel_" + key);
+				}, delay_ms);
+			}
+		};
+		rw.on_sync_complete(function() {
+			for(var key in rs._scheduled_callbacks) {
+				setTimeout(function() {
+					rs._scheduled_callbacks[key].f();
+					//rs.trigger("_cancel_" + key);
+				}, rs._scheduled_callbacks[key].delay);
+			}
+		});
+		
+		rs._when_realtime_callbacks = {};
+		rs.when_realtime = function(f, delay_ms) {
+			delay_ms = delay_ms || 0;
+			var key = Object.size(rs._when_realtime_callbacks);
+			if(rw.__sync__.in_progress) {
+				rs._when_realtime_callbacks[key] = {f: f, delay: delay_ms};
+			} else {
+				setTimeout(function() {
+					f();
+				}, delay_ms);
+			}
+		};
+		rw.on_sync_complete(function() {
+			for(var key in rs._when_realtime_callbacks) {
+				setTimeout(function() {
+					rs._when_realtime_callbacks[key].f();
+				}, rs._when_realtime_callbacks[key].delay);
+			}
+		});
+		
+		rw.on_sync_complete(function() {
+			rs.is_realtime = true;
+		});
+		
+		rw.recv_subjects("__set_group__", function(msg) {
+			if(msg.Sender == rs.user_id) {
+				rs._group = msg.Value.group;
+			}
 			rs.subjects.push({
 				user_id: msg.Sender,
 				points: 0,
 				accumulated_points: 0,
+				points_by_period: function() {
+					var results = [];
+					if(!this.data["_accumulated_points"] || !this.data["_accumulated_points"].length) {
+						return results;
+					}
+					results.push(this.data["_accumulated_points"][0]);
+					for(var i = 1; i < this.data["_accumulated_points"].length; i++) {
+						results.push(this.data["_accumulated_points"][i] - this.data["_accumulated_points"][i - 1]);
+					}
+					return results;
+				},
+				data: {},
+				get: function(key) {
+					return (isNullOrUndefined(this.data[key]) ? undefined : this.data[key].last());
+				},
+				getPrevious: function(key) {
+					return (isNullOrUndefined(this.data[key]) ? undefined
+							: (this.data[key].length > 1 ? this.data[key][this.data[key].length - 2] : undefined));
+				},
 				_loaded: false,
 				_synced: []});
 			rs.subjects.sort(function(a,b) {
 				return parseInt(a.user_id) - parseInt(b.user_id);
 			});
-			if(msg.Sender === rs.user_id) {
-				rs.subject = rs.subjects.firstWhere(function() {
-					return this.user_id === rs.user_id;
-				});
-			}
+			rs.subjects.forEach(function() {
+				rs.subject[this.user_id] = this;
+			});
 		});
 		
-		rs.subject_by_id = function(user_id) {
-			return rs.subjects.firstWhere(function() {return this.user_id == user_id;});
-		};
+		rw.recv_subjects("*", function(msg) {
+			if((msg.Period > 0 && msg.Period != rw.periods[msg.Sender])
+					|| !rs.subject[msg.Sender]) return;
+			if(!rs.subject[msg.Sender].data[msg.Key]) {
+				rs.subject[msg.Sender].data[msg.Key] = [];
+			}
+			rs.subject[msg.Sender].data[msg.Key].push(msg.Value);
+		});
 		
 		rw.recv_subjects("__page_loaded__", function(msg) {
-			rs.subject_by_id(msg.Sender)._loaded = true;
+			if(msg.Period != rw.periods[msg.Sender]
+				|| rw.groups[msg.Sender] != rs._group
+				|| !rs.subject[msg.Sender]) return;
+			rs.subject[msg.Sender]._loaded = true;
 			var not_loaded = rs.subjects.firstWhere(function() {return !this._loaded;});
 			if(!not_loaded) {
 				rs._enable_messaging();
@@ -242,7 +353,10 @@ var RedwoodSubject = {
 			rs._on_user_synced(sender);
 		});
 		rs.after_waiting_for_all = function(f) {
-			rs._waits.push({ users: rw.subjects, f: f });
+			var subjects = rw.subjects.where(function() {
+				return rw.groups[this] == rs._group;
+			});
+			rs._waits.push({ users: subjects, f: f });
 			rs.trigger("user_synced");
 		};
 		rs.after_waiting_for = function(users, f) {
@@ -253,30 +367,61 @@ var RedwoodSubject = {
 			rs._on_user_synced(rs.user_id);
 		});
 		rs._on_user_synced = function(user_id) {
-			rs.subject_by_id(user_id)._synced.push(true);
+			rs.subject[user_id]._synced.push(true);
 			if(rs._waits[0]) {
 				var subjects = rs.subjects.where(function() {
 					var _this = this;
 					return rs._waits[0].users.firstWhere(function() {return _this.user_id == this});
 				});
 				if(!subjects.firstWhere(function() { return !this._synced[0]; })) {
-					var f = rs._waits.shift().f;
-					f();
 					subjects.forEach(function() {
 						this._synced.shift();
 					});
+					var f = rs._waits.shift().f;
+					f();
 				}
 			}
 		};
 		
-		rs.on_load(function() {
-			rs._retrieve(["_accumulated_points"], rw.subjects, function(results) {
+		rw.on_load(function() {
+			$("[name='data-period']").text(rs.period);
+			rs.after_waiting_for_all(function() {
 				for(var i = 0, l = rs.subjects.length; i < l; i++) {
-					rs.subjects[i].accumulated_points += results["_accumulated_points"][rs.subjects[i].user_id];
+					rs.subjects[i].accumulated_points += (rs.subjects[i].get("_accumulated_points") ? rs.subjects[i].get("_accumulated_points") : 0);
 				}
-				rs.accumulated_points = rs.subject_by_id(rs.user_id).accumulated_points;
+				rs.accumulated_points = rs.subject[rs.user_id].accumulated_points;
+				$("[name='data-period-points']").text(rs.points.toFixed(2));
+				$("[name='data-total-points']").text(rs.accumulated_points.toFixed(2));
+				
+				if(rs.__pause__ === rs.period) {
+                    rs.send("__paused__");
+                } else {
+					for(var i = 0; i < rs._on_load_callbacks.length; i++) {
+						(rs._on_load_callbacks.shift())();
+					}
+				}
 			});
 		});
+		
+		rw.recv_self("__pause__", function(msg) {
+			rs.__pause__ = msg.Period;
+		});
+		
+		rw.recv_self("__resume__", function(msg) {
+			if(rs.__pause__ === msg.Period) {
+				for(var i = 0; i < rs._on_load_callbacks.length; i++) {
+					(rs._on_load_callbacks.shift())();
+				}
+                rs.send("__resumed__");
+				rs.__pause__ = undefined;
+			}
+		});
+		
+		rs._on_load_callbacks = [];
+		rs.on_load = function(f) {
+			rs._on_load_callbacks.push(f);
+		};
+		
 	},
 	
 	create: function(){} //to be overridden
