@@ -99,7 +99,16 @@ function Redwood() {
 		};
 
 		rw.__ws__.onmessage = function(ws_msg) {
+			if(rw.__pending_reload__)
+				return;
 			var msg = JSON.parse(ws_msg.data);
+			if(REDWOOD2_MESSAGE_LOG) {
+				console.log(msg.Period
+					+ ", " + msg.Group
+					+ ", " + msg.Sender
+					+ ", " + msg.Key
+					+ ", " + msg.Value);
+			}
 			if(msg.Key === rw.KEY.__queue_start__) {
 				rw.__nonce__ = msg.Nonce;
 				rw.__sync__.in_progress = true;
@@ -224,7 +233,7 @@ function Redwood() {
 	
 	rw.recv_subjects = function(key, f) {
 		rw.recv(key, function(msg){
-			if(msg.Sender !== "admin")
+			if(msg.Sender && msg.Sender !== "admin")
 				f(msg);
 		});
 	};
@@ -240,16 +249,18 @@ function Redwood() {
 	
 	rw.on_load = function(f) {
 		rw.recv_self(rw.KEY.__page_loaded__, function(msg) {
-			if(msg.Period === rw.period) {
+			if(msg.Period === rw.period || (rw.user_id == "admin" && isNullOrUndefined(rw.period))) {
 				f();
 			}
 		});
 	};
 	
 	rw.__is_reload__ = false;
-	rw.on_load(function () {
-		if(rw.__sync__.in_progress){
-			rw.__is_reload__ = true;
+	rw.recv_self(rw.KEY.__page_loaded__, function(msg) {
+		if(msg.Period === rw.period || isNullOrUndefined(rw.period)) {
+			if(rw.__sync__.in_progress){
+				rw.__is_reload__ = true;
+			}
 		}
 	});
 	
@@ -281,14 +292,19 @@ function Redwood() {
 	};
 	
 	rw.__broadcast__ = function(msg) {
+		if ("*" in rw.__listeners__ && !rw.KEY[msg.Key]) {
+			for (var i = 0; i < rw.__listeners__["*"].length; i++) {
+				rw.__listeners__["*"][i](msg);
+			}
+		}
+		if ("__*__" in rw.__listeners__) {
+			for (var i = 0; i < rw.__listeners__["*"].length; i++) {
+				rw.__listeners__["*"][i](msg);
+			}
+		}
 		if (msg.Key in rw.__listeners__) {
 			for (var i = 0; i < rw.__listeners__[msg.Key].length; i++) {
 				rw.__listeners__[msg.Key][i](msg);
-			}
-		}
-		if ("*" in rw.__listeners__) {
-			for (var i = 0; i < rw.__listeners__["*"].length; i++) {
-				rw.__listeners__["*"][i](msg);
 			}
 		}
 	};
@@ -304,29 +320,31 @@ function Redwood() {
 			}
 		}
 		
-		var reload = false;
 		switch(msg.Key) {
 			case rw.KEY.__reset__ :
 			case rw.KEY.__delete__:
 				if(!rw.__sync__.in_progress) {
-					reload = true;
+					rw.__pending_reload__ = true;
 				}
 				break;
 			
 			case rw.KEY.__set_period__:
 				rw.periods[msg.Sender] = msg.Value.period;
-				if(!rw.__sync__.in_progress && msg.Sender === rw.user_id) {
+				/*if(!rw.__sync__.in_progress && msg.Sender === rw.user_id) {
 					reload = true;
-				}
+				}*/
 				if(msg.Sender === rw.user_id) {
 					rw.period = msg.Value.period;
+				}
+				if(rw.__sync__.in_progress && msg.Sender === rw.user_id){
+					rw.__is_reload__ = false;
 				}
 				break;
 				
 			case rw.KEY.__set_page__:
 				rw.pages[msg.Sender] = msg.Value.page;
 				if(!rw.__sync__.in_progress && msg.Sender === rw.user_id) {
-					reload = true;
+					rw.__pending_reload__ = true;
 				}
 				break;
 			
@@ -352,14 +370,17 @@ function Redwood() {
 				break;
 			case rw.KEY.__register__:
 				rw.subjects.push(msg.Sender);
+				rw.subjects.sort(function(a, b) {
+					return parseInt(a) - parseInt(b);
+				});
 				break;
 		}
 		
 		rw.queue.push(msg);
 		rw.__broadcast__(msg);
 		
-		if(reload) {
-			window.location.reload(true);
+		if(rw.__pending_reload__) {
+			setTimeout(function() { window.location.reload(true); }, 0);
 		}
 	};
 	
@@ -385,4 +406,5 @@ function Redwood() {
 
 $(function() {
 	rw = new Redwood();
+	$("[name='data-user-id']").text(rw.user_id);
 });

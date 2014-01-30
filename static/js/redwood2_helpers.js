@@ -16,7 +16,12 @@ Object.size = function(obj) {
     if (obj.hasOwnProperty(key)) size++;
   }
   return size;
-}
+};
+
+// return the last element of the array
+Array.prototype.last = function() {
+	return this[this.length - 1];
+};
 
 // return the sum of the array
 Array.prototype.sum = function() {
@@ -25,21 +30,21 @@ Array.prototype.sum = function() {
   	total += this[i];
   }
   return total;
-}
+};
 
 // return the mean of the array
 Array.prototype.max = function() {
   return Math.max.apply(null, this)
-}
+};
 
 Array.prototype.min = function() {
   return Math.min.apply(null, this)
-}
+};
 
 // return the mean of the array
 Array.prototype.mean = function() {
   return this.sum() / this.length;
-}
+};
 
 // run a Fischer-Yates shuffle on a collection
 // e.g. [1, 2, 3, 4, 5].shuffle()
@@ -57,7 +62,7 @@ Array.prototype.shuffle = function(rng) {
 		}
 	}
 	return this;
-}
+};
 
 Array.prototype.forEach = function(f) {
 	for(var i = 0, l = this.length; i < l; i++) {
@@ -82,6 +87,33 @@ Array.prototype.firstWhere = function(f) {
 		}
 	}
 };
+
+Array.prototype.contains = function(value) {
+	return $.inArray(value, this) >= 0 || this.firstWhere(function() {
+		return this == value;
+	});
+};
+
+Array.prototype.extract = function(f) {
+	var results = [];
+	for(var i = 0, l = this.length; i < l; i++) {
+		results.push(f.call(this[i]));
+	}
+	return results;
+};
+
+var getPoisson = function(lambda) {
+	var L = Math.exp(-lambda);
+	var p = 1.0;
+	var k = 0;
+
+	do {
+		k++;
+		p *= Math.random();
+	} while (p > L);
+
+	return k - 1;
+}
 
 function require(script) {
 //this function checks to see if a required script was loaded or not
