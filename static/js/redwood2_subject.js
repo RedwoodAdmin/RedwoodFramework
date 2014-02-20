@@ -4,6 +4,7 @@ var RedwoodSubject = {
 		var rs = this;
 		rs.user_id = rw.user_id;
 		rs.subjects = [];
+		rs.other_subjects = [];
 		rs.subject = {};
 		rs.points = 0;
 		rs.accumulated_points = 0;
@@ -13,6 +14,8 @@ var RedwoodSubject = {
 		rs._send_queue = [];
 		rs._event_handlers = {};
 		rs._msg_handlers = {};
+
+		rs._pause = {};
 		
 		rs._handle_event_msg = function(msg) {
 			if(msg.Period != rw.periods[msg.Sender]) return;
@@ -99,6 +102,9 @@ var RedwoodSubject = {
 				if ((!config.period && rs.period == i + 1) || config.period === rs.period) {
 					if (!config.group || config.group == rs._group) {
 						rs.config = config;
+						if(rs.config.pause) {
+							rs._pause[rs.period] = true;
+						}
 					}
 				}
 			}
@@ -216,7 +222,6 @@ var RedwoodSubject = {
 		};
 		
 		rs.on("_finish", function() {
-			rs._send("_accumulated_points", rs.accumulated_points, {period: rs.config.length}); //THIS LINE SHOULD BE REMOVED (NEED TO CHANGE YORAM'S ULTIMATUM GAME FIRST)
 			rs.set("_accumulated_points", rs.accumulated_points);
 			rw.set_period(rw.configs.length + 1);
 		});
@@ -229,7 +234,7 @@ var RedwoodSubject = {
 					delete rs._when_live_callbacks[key];
 				});
 			} else {
-				f();
+				setTimeout(f, 0);
 			}
 		};
 		rs.cancel = function(key) {
@@ -252,10 +257,7 @@ var RedwoodSubject = {
 					delete rs._scheduled_callbacks[key];
 				});
 			} else {
-				setTimeout(function() {
-					f();
-					//rs.trigger("_cancel_" + key);
-				}, delay_ms);
+				setTimeout(f, delay_ms);
 			}
 		};
 		rw.on_sync_complete(function() {
@@ -326,6 +328,9 @@ var RedwoodSubject = {
 			rs.subjects.forEach(function() {
 				rs.subject[this.user_id] = this;
 			});
+			rs.other_subjects = rs.subjects.where(function() {
+				this.user_id !== rs.user_id;
+			})
 		});
 		
 		rw.recv_subjects("*", function(msg) {
@@ -347,7 +352,7 @@ var RedwoodSubject = {
 				rs._enable_messaging();
 			}
 		});
-		
+
 		rs._waits = [];
 		rs.recv("user_synced", function(sender, value) {
 			rs._on_user_synced(sender);
@@ -382,38 +387,53 @@ var RedwoodSubject = {
 				}
 			}
 		};
+
+		rs._start_period = function() {
+			for(var i = 0; i < rs._on_load_callbacks.length; i++) {
+				(rs._on_load_callbacks.shift())();
+			}
+		};
 		
 		rw.on_load(function() {
 			$("[name='data-period']").text(rs.period);
 			rs.after_waiting_for_all(function() {
+
+				if(rs.config && $.isArray(rs.config.groups) && rs.config.groups.length > 0 && $.isArray(rs.config.groups[0])) {
+					for(var i = 0; i < rs.config.groups.length; i++) {
+						for(var j = 0; j < rs.config.groups[i].length; j++) {
+							if(rs.subject[rs.config.groups[i][j]]) {
+								rs.subject[rs.config.groups[i][j]].groupForPeriod = i + 1;
+							}
+						}
+					}
+				}
+
 				for(var i = 0, l = rs.subjects.length; i < l; i++) {
 					rs.subjects[i].accumulated_points += (rs.subjects[i].get("_accumulated_points") ? rs.subjects[i].get("_accumulated_points") : 0);
 				}
 				rs.accumulated_points = rs.subject[rs.user_id].accumulated_points;
 				$("[name='data-period-points']").text(rs.points.toFixed(2));
 				$("[name='data-total-points']").text(rs.accumulated_points.toFixed(2));
-				
-				if(rs.__pause__ === rs.period) {
-                    rs.send("__paused__");
-                } else {
-					for(var i = 0; i < rs._on_load_callbacks.length; i++) {
-						(rs._on_load_callbacks.shift())();
-					}
+
+				if(rs._pause[rs.period]) {
+					rw.send("__paused__", { period: rs.period }, { period: rs.period, group: rs._group, sender: rs.user_id });
+				} else {
+					rs._start_period();
 				}
 			});
 		});
 		
-		rw.recv_self("__pause__", function(msg) {
-			rs.__pause__ = msg.Period;
+		rw.recv_self("_pause", function(msg) {
+			rs._pause[msg.Value.period] = true;
 		});
 		
 		rw.recv_self("__resume__", function(msg) {
-			if(rs.__pause__ === msg.Period) {
-				for(var i = 0; i < rs._on_load_callbacks.length; i++) {
-					(rs._on_load_callbacks.shift())();
+			if(rs._pause[msg.Value.period]) {
+				rs._pause[msg.Value.period] = false;
+				if(rs.period === msg.Value.period) {
+					rs._start_period();
+					rs.send("__resumed__", {period: rs.period});
 				}
-                rs.send("__resumed__");
-				rs.__pause__ = undefined;
 			}
 		});
 		
