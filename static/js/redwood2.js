@@ -102,7 +102,7 @@ function Redwood() {
 			if(rw.__pending_reload__)
 				return;
 			var msg = JSON.parse(ws_msg.data);
-			if(REDWOOD2_MESSAGE_LOG) {
+			if(typeof REDWOOD2_MESSAGE_LOG !== 'undefined' && REDWOOD2_MESSAGE_LOG) {
 				console.log(msg.Period
 					+ ", " + msg.Group
 					+ ", " + msg.Sender
