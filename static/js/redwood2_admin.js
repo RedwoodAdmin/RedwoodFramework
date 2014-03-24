@@ -94,7 +94,7 @@ var RedwoodAdmin = {
 		
 		ra.on_router_connected = function(f) {
 			ra.recv("__router_status__", function() {
-					f(rw.__ws__.readyState === WebSocket.OPEN);
+				f(rw.__ws__.readyState === WebSocket.OPEN);
 			});
 		};
 		ra.on_router_connected(function(isConnected) {
@@ -193,24 +193,15 @@ var RedwoodAdmin = {
 			ra.subject[sender].period = value.period;
 		});
 
-		ra._sendPauses = function() {
-			for(var i = 0; i < ra.configs.length; i++) {
-				if(ra.configs[i].pause) {
-					for(var s = 0; s < ra.subjects.length; s++) {
-						ra.__send__("__pause__", undefined, ra.subjects[s].user_id, i + 1, ra.subjects[s].group);
-					}
-				}
-			}
-		};
 
 		ra.pause = function() {
 			for(var i = 0; i < ra.subjects.length; i++) {
-				ra.__send__("__pause__", undefined, ra.subjects[i].user_id, ra.subjects[i].period + 1, ra.subjects[i].group);
+				ra.__send__("__pause__", { period: ra.subjects[i].period + 1 }, ra.subjects[i].user_id, 0, ra.subjects[i].group);
 			}
 		};
 		ra.resume = function() {
 			for(var i = 0; i < ra.subjects.length; i++) {
-				ra.__send__("__resume__", undefined, ra.subjects[i].user_id, ra.subjects[i].period, ra.subjects[i].group);
+				ra.__send__("__resume__", { period: ra.subjects[i].period }, ra.subjects[i].user_id, 0, ra.subjects[i].group);
 			}
 		};
 
@@ -241,7 +232,6 @@ var RedwoodAdmin = {
 		});
 
 		ra.start_session = function() {
-			ra._sendPauses();
 			for(var i = 0; i < ra.subjects.length; i++) {
 				ra.set_period(0, ra.subjects[i].user_id); //set all subjects to period 0
 			}
@@ -250,11 +240,17 @@ var RedwoodAdmin = {
 		ra.reset = function() {
 			ra.trigger("__reset__");
 		};
+
+		ra.delete_session = function() {
+			ra.trigger("__delete__");
+			$.post("admin/archive");
+		};
 	},
 	create: function(){} //to be overridden
 };
 
 $(function () {
+
 	RedwoodAdmin._initialize();
 	RedwoodAdmin.create();
 	
