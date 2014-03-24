@@ -64,10 +64,11 @@ Array.prototype.shuffle = function(rng) {
 	return this;
 };
 
+Array.prototype.nativeForeach = Array.prototype.forEach;
 Array.prototype.forEach = function(f) {
-	for(var i = 0, l = this.length; i < l; i++) {
-		f.call(this[i]);
-	}
+	this.nativeForeach(function(d, i, a) {
+		f.call(d, d, i, a);
+	});
 }
 
 Array.prototype.where = function(f) {

@@ -122,7 +122,7 @@ function Redwood() {
 					rw.send(rw.KEY.__page_loaded__);
 				}
 				for(var i = 0, l = (rw.__send_queue__.length); i < l; i++) {
-					rw.send(rw.__send_queue__[i].key, rw.__send_queue__[i].value, rw.__send_queue__[i].args);
+					//rw.send(rw.__send_queue__[i].key, rw.__send_queue__[i].value, rw.__send_queue__[i].args);
 				}
 			}
 			if(rw.__sync__.in_progress && rw.__send_queue__.length > 0) {
@@ -206,7 +206,9 @@ function Redwood() {
 		}
 	};
 	
-	rw.__error_send__ = function(key, value, args) {};
+	rw.__error_send__ = function(key, value, args) {
+		console.log("ERROR: Failed to send message: Key: " + key + " value: " + value);
+	};
 	
 	rw.send = rw.__error_send__;
 	
