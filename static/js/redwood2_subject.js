@@ -19,9 +19,7 @@ var RedwoodSubject = {
 		
 		rs._handle_event_msg = function(msg) {
 			if(msg.Period != rw.periods[msg.Sender]) return;
-			//if(rw.__sync__.in_progress) {
-				rs._broadcast_event(msg.Key, msg.Value);
-			//}
+			rs._broadcast_event(msg.Key, msg.Value);
 		};
 		
 		rs._handle_msg = function(msg) {
@@ -312,7 +310,9 @@ var RedwoodSubject = {
 					}
 					return results;
 				},
-				data: {},
+				data: {
+					_synced: []
+				},
 				get: function(key) {
 					return (isNullOrUndefined(this.data[key]) ? undefined : this.data[key].last());
 				},
@@ -320,8 +320,7 @@ var RedwoodSubject = {
 					return (isNullOrUndefined(this.data[key]) ? undefined
 							: (this.data[key].length > 1 ? this.data[key][this.data[key].length - 2] : undefined));
 				},
-				_loaded: false,
-				_synced: []});
+				_loaded: false});
 			rs.subjects.sort(function(a,b) {
 				return parseInt(a.user_id) - parseInt(b.user_id);
 			});
@@ -354,34 +353,37 @@ var RedwoodSubject = {
 		});
 
 		rs._waits = [];
-		rs.recv("user_synced", function(sender, value) {
-			rs._on_user_synced(sender);
+		rs.on("_synced", function() {
+			rs._on_synced(rs.user_id);
+		});
+		rs.recv("_synced", function(sender, value) {
+			rs._on_synced(sender);
 		});
 		rs.after_waiting_for_all = function(f) {
 			var subjects = rw.subjects.where(function() {
 				return rw.groups[this] == rs._group;
 			});
 			rs._waits.push({ users: subjects, f: f });
-			rs.trigger("user_synced");
+			rs.trigger("_synced", { period: rs.period });
 		};
 		rs.after_waiting_for = function(users, f) {
 			rs._waits.push({ users: users, f: f });
-			rs.trigger("user_synced");
+			rs.trigger("_synced", { period: rs.period });
 		};
-		rs.on("user_synced", function() {
-			rs._on_user_synced(rs.user_id);
-		});
-		rs._on_user_synced = function(user_id) {
-			rs.subject[user_id]._synced.push(true);
+		rs._on_synced = function(user_id) {
 			if(rs._waits[0]) {
 				var subjects = rs.subjects.where(function() {
 					var _this = this;
 					return rs._waits[0].users.firstWhere(function() {return _this.user_id == this});
 				});
-				if(!subjects.firstWhere(function() { return !this._synced[0]; })) {
-					subjects.forEach(function() {
-						this._synced.shift();
-					});
+				var syncCount = subjects[0].data._synced.where(function() {
+					return this.period == rs.period;
+				}).length;
+				if(!subjects.firstWhere(function() {
+						return this.data._synced.where(function() {
+							return this.period == rs.period;
+						}).length != syncCount;
+					})) {
 					var f = rs._waits.shift().f;
 					f();
 				}
