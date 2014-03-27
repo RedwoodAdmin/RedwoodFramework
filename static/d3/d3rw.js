@@ -18,7 +18,7 @@ d3.rw = d3.rw || {};
 
 (function() { //Indifference Curve
 	
-	d3.rw.indifferenceCurve = function(grid, threshold) {
+	d3.rw.indifferenceCurve = function(grid, value) {
 		var curve = [];
 		
 		var xEstimate, yEstimate;
@@ -32,14 +32,14 @@ d3.rw = d3.rw || {};
 			for(var y = 1, maxY = height + 1; y < maxY; y++) {
 				
 				// Check for x crossing
-				if (x < height && (grid[prevX][prevY] > threshold) !== (grid[x][prevY] > threshold)) {
-					var xEstimate = prevX + (threshold - grid[prevX][prevY]) / (grid[x][prevY] - grid[prevX][prevY]);
+				if (x < height && (grid[prevX][prevY] > value) !== (grid[x][prevY] > value)) {
+					var xEstimate = prevX + (value - grid[prevX][prevY]) / (grid[x][prevY] - grid[prevX][prevY]);
 					curve.push([xEstimate, prevY]);
 				}
 				
 				// Check for y crossing
-				if(y < height && (grid[prevX][prevY] > threshold) !== (grid[prevX][y] > threshold)) {
-					var yEstimate = prevY + (threshold - grid[prevX][prevY]) / (grid[prevX][y] - grid[prevX][prevY]);
+				if(y < height && (grid[prevX][prevY] > value) !== (grid[prevX][y] > value)) {
+					var yEstimate = prevY + (value - grid[prevX][prevY]) / (grid[prevX][y] - grid[prevX][prevY]);
 					curve.push([prevX, yEstimate]);
 				}
 				prevY++;
@@ -55,7 +55,15 @@ d3.rw = d3.rw || {};
 
 })();
 
-(function() { //Stretch
+/**
+ * Up-samples or down-samples a given input array. It can be thought of as follows:
+ * The values in the input array are connected with straight lines to form a continuous curve.
+ * The value of this curve is then measured at c equally spaced intervals.
+ * @param {Array<Any type that can be interpolated by d3>} input. The input array.
+ * @param {Number} c. The number of samples to return.
+ * @return {Array<typeof input>} An array of length c
+ */
+(function() {
 	
 	d3.rw.stretch = function(input, c) {
 		if(input.length < 2) {
