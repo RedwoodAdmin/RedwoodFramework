@@ -29,7 +29,7 @@
 				var x = Math.max(0, pos.x);
 				x = Math.min(state.maxX, x);
 				var y = (state.budget - (x * state.Px)) / state.config.Py;
-				rs.trigger("selection", [x, y]);
+				rs.trigger("allocation", {x: x, y: y});
 			});
 
 			$("#plot").bind("mouseout", function (event) {
@@ -38,16 +38,16 @@
 				Display.replot();
 			});
 
-			rs.on("selection", function(point) {
+			rs.on("allocation", function(point) {
 				$("#confirm-button").removeAttr("disabled");
 				//Display.generateContourPoints(point[0], point[1]);
-				Display.svgRedrawIndifferenceCurve(state.utilityFunction(point[0], point[1]));
+				Display.svgDrawAllocation();
 				Display.replot();
 			});
 
 			$("#confirm-button").click(function() {
 				if(!state.inputsEnabled) return;
-				if(!state.selection) {
+				if(!state.allocation) {
 					alert("Please select a ratio of x and y by clicking on the graph.");
 				} else {
 					$("#confirm-button").attr("disabled", "disabled");
@@ -67,7 +67,10 @@
 			
 			state.xPosition = d3.scale.linear().domain([0, state.xLimit]).range([0, state.plotWidth]);
 			state.yPosition = d3.scale.linear().domain([0, state.yLimit]).range([state.plotHeight, 0]);
-			
+
+            state.xAtPosition = d3.scale.linear().domain([0, state.plotWidth]).range([0, state.xLimit]);
+            state.yAtPosition = d3.scale.linear().domain([state.plotHeight, 0]).range([0, state.yLimit]);
+
 			state.heatModel = {};
 			
 			state.heatModel.xScale = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.xLimit]);
@@ -109,13 +112,20 @@
                     .datum(points)
                     .attr("d", state.line);
             }
+
+            //        (d3.event.pageY-10)+"px").style("left",(d3.event.pageX+10)+"px");})
+
+            state.svg.on("mousemove", function() {
+                var position = d3.mouse(this);
+                Display.svgDrawHoverText(position[0], position[1]);
+            });
 		},
 		
 		svgDrawHeatMap: function() {
 		
 			var width = state.xPosition(state.heatModel.xScale(1));
 			var height = state.yPosition(state.heatModel.yScale(state.dotsPerLine - 2));
-			
+
 			var verticalGradients = state.heatMap.selectAll(".verticalGradient")
 				.data(state.heatModel.grid)
 				.enter()
@@ -193,19 +203,53 @@
 				.attr("fill", function(d, i) { return "url(#horizontalGradient-" + i + ")"; });
 			
 		},
-		
-		svgRedrawIndifferenceCurve: function(value) {
-			
-			var points = d3.rw.indifferenceCurve(state.heatModel.grid, value)
-				.map(function(d) {
-					return [state.xPosition(state.heatModel.xScale(d[0])), state.yPosition(state.heatModel.yScale(d[1]))];
-				});
-				
-			state.indifferenceCurve
-				.datum(points)
-				.attr("d", state.line);
 
-		},
+        svgDrawHoverText: function(x, y) {
+            var utility = state.utilityFunction(state.xAtPosition(x), state.yAtPosition(y));
+
+            var hoverText = state.svg.selectAll(".hover-text").data([utility]);
+            hoverText.enter()
+                .append("text")
+                .attr("class", "hover-text")
+                .style("fille", "black");
+            hoverText
+                .attr("x", x + 10)
+                .attr("y", y - 10)
+                .text(function(d) { return "[" + d.toFixed(2) + "]"; });
+        },
+
+        svgDrawAllocation: function() {
+            var utility = state.utilityFunction(state.allocation.x, state.allocation.y);
+
+            var allocationPoint = state.svg.selectAll(".allocation-point").data([state.allocation]);
+            allocationPoint.enter()
+                .append("circle")
+                .attr("class", "allocation-point")
+                .attr("r", 5)
+                .style("fill", "black");
+            allocationPoint
+                .attr("cx", function(d) { return state.xPosition(d.x); })
+                .attr("cy", function(d) { return state.yPosition(d.y); });
+
+            var allocationText = state.svg.selectAll(".allocation-text").data([state.allocation]);
+            allocationText.enter()
+                .append("text")
+                .attr("class", "allocation-text");
+            allocationText
+                .attr("x", function(d) { return state.xPosition(d.x) + 10; })
+                .attr("y", function(d) { return state.yPosition(d.y) - 10; })
+                .text("[" + utility.toFixed(2) + "]");
+
+            var points = d3.rw.indifferenceCurve(state.heatModel.grid, utility)
+                .map(function(d) {
+                    return [state.xPosition(state.heatModel.xScale(d[0])), state.yPosition(state.heatModel.yScale(d[1]))];
+                });
+
+            state.indifferenceCurve
+                .datum(points)
+                .attr("d", state.line);
+
+        },
 
 		replot: function() { //Redraw plot area
 		
@@ -218,7 +262,7 @@
 			}
 			
 			/*if(state.) {
-				dataset.push({ //contour line at current selection
+				dataset.push({ //contour line at current allocation
 					data: state.contourPoints,
 					lines: { show: true },
 					points: { show: true },
@@ -261,24 +305,24 @@
 				});
 			}
 
-			if(state.selection) {
-				dataset.push({ //black selection dot
-					data: [state.selection],
+			if(state.allocation) {
+				dataset.push({ //black allocation dot
+					data: [[state.allocation.x, state.allocation.y]],
 					lines: { show: false },
 					points: { show: true, lineWidth: 4, fill: true, radius: 4 },
 					color: "black",
 					hoverable: false
 				});
-				dataset.push({ //black selection dot
-					data: [state.selection],
+				dataset.push({ //black allocation dot
+					data: [[state.allocation.x, state.allocation.y]],
 					lines: { show: false },
 					points: { show: true, fill: true, radius: 1 },
 					color: "black",
 					hoverable: false
 				});
 				if(!state.finalResult) {
-					dataset.push({ //dashed selection lines
-						data: [[0, state.selection[1]], state.selection, [state.selection[0], 0]],
+					dataset.push({ //dashed allocation lines
+						data: [[0, state.allocation.y], [state.allocation.x, state.allocation.y], [state.allocation.x, 0]],
 						dashes: { show: true, lineWidth: 1 },
 						color: "black",
 						hoverable: false
@@ -303,7 +347,7 @@
 					hoverable: false
 				});
 				dataset.push({ //green result line
-					data: [resultPoint, state.selection],
+					data: [resultPoint, [state.allocation.x, state.allocation.y]],
 					dashes: { show: true, lineWidth: 1 },
 					color: "#51a351",
 					hoverable: false
@@ -318,9 +362,9 @@
 					ctx.fillText(text, offset.left + 10, offset.top - 10);
 				}
 
-				if(state.selection) {
-					var offset = plot.pointOffset({ x: state.selection[0], y: state.selection[1] });
-					var text = "[" + state.selection[0].toFixed(2) + ", " + state.selection[1].toFixed(2) + "]";
+				if(state.allocation) {
+					var offset = plot.pointOffset({ x: state.allocation.x, y: state.allocation.y });
+					var text = "[" + state.allocation.x.toFixed(2) + ", " + state.allocation.y.toFixed(2) + "]";
 					ctx.fillStyle = "black";
 					ctx.fillText(text, offset.left + 10, offset.top - 10);
 				}
@@ -401,7 +445,7 @@
 			//Begin next round
 			state.round++;
 			state.cursor = undefined;
-			state.selection = undefined;
+			state.allocation = undefined;
 			
 			var prices = rs.subject[rs.user_id].get("prices");
 			state.Px = state.round > 1 ? prices.x : state.config.Px;
@@ -417,20 +461,20 @@
 			Display.svgPrepare();
 			
 			if(state.config.enableDefault) {
-				rs.trigger("selection", [state.Ex, state.Ey]);
+				rs.trigger("allocation", {x: state.Ex, y: state.Ey});
 			}
 
 			state.inputsEnabled = true;
 		});
 
-		rs.on("selection", function(selection) {
-			state.selection = selection;
+		rs.on("allocation", function(allocation) {
+			state.allocation = allocation;
 		});
 
 		rs.on("confirm", function() {
 			state.inputsEnabled = false;
 			var chosen = Math.random() < state.config.ProbX ? "x" : "y";
-			rs.trigger("result", { x: state.selection[0], y: state.selection[1], chosen: chosen });
+			rs.trigger("result", { x: state.allocation.x, y: state.allocation.y, chosen: chosen });
 
 			rs.after_waiting_for_all(function() {
 				var excessDemandX = 0;
@@ -438,9 +482,9 @@
 				rs.subjects.where(function() {
 						return this.groupForPeriod && this.groupForPeriod === rs.subject[rs.user_id].groupForPeriod;
 					}).forEach(function(d) {
-						var selection = d.get("selection");
-						excessDemandX += selection[0] - state.Ex;
-						excessDemandY += selection[1] - state.Ey;
+						var allocation = d.get("allocation");
+						excessDemandX += allocation.x - state.Ex;
+						excessDemandY += allocation.y - state.Ey;
 				});
 				var newPriceX = priceUpdateFormula(state.Px, excessDemandX);
 				var newPriceY = priceUpdateFormula(state.Py, excessDemandY);
