@@ -6,13 +6,16 @@
 	var Display = { //Display controller
 
 		initialize: function() {
-			
+
+            var width = $("#d3-plot").width();
+            $("#d3-plot").css("height", width);
+
 			$("#prob-x").text(state.config.ProbX);
 			$("#prob-y").text(1 - state.config.ProbX);
 
 			rs.on("next_round", function() {
 				$("[name='round']").text(state.round + (state.rounds ? " / " + state.rounds : ""));
-				Display.replot();
+				//Display.replot();
 			});
 
 			$("#plot").bind("plothover", function (event, pos, item) {
@@ -21,7 +24,7 @@
 				x = Math.min(state.maxX, x);
 				var y = (state.budget - (x * state.Px)) / state.config.Py;
 				state.cursor = [x, y];
-				Display.replot();
+				//Display.replot();
 			});
 
 			$("#plot").bind("plotclick", function (event, pos, item) {
@@ -35,14 +38,14 @@
 			$("#plot").bind("mouseout", function (event) {
 				if(!state.inputsEnabled) return;
 				state.cursor = undefined;
-				Display.replot();
+				//Display.replot();
 			});
 
 			rs.on("allocation", function(point) {
 				$("#confirm-button").removeAttr("disabled");
 				//Display.generateContourPoints(point[0], point[1]);
 				Display.svgDrawAllocation();
-				Display.replot();
+				//Display.replot();
 			});
 
 			$("#confirm-button").click(function() {
@@ -64,19 +67,24 @@
 			state.svg = d3.select("#d3-plot");
 			state.plotWidth = $("#d3-plot").width();
 			state.plotHeight = $("#d3-plot").height();
-			
-			state.xPosition = d3.scale.linear().domain([0, state.xLimit]).range([0, state.plotWidth]);
-			state.yPosition = d3.scale.linear().domain([0, state.yLimit]).range([state.plotHeight, 0]);
+            
+            state.scales = {};
 
-            state.xAtPosition = d3.scale.linear().domain([0, state.plotWidth]).range([0, state.xLimit]);
-            state.yAtPosition = d3.scale.linear().domain([state.plotHeight, 0]).range([0, state.yLimit]);
+            state.scales.indexToX = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.xLimit]);
+            state.scales.indexToY = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.yLimit]);
+            state.scales.xToOffset = d3.scale.linear().domain([0, state.xLimit]).range([0, state.plotWidth]).clamp(true);
+			state.scales.yToOffset = d3.scale.linear().domain([0, state.yLimit]).range([state.plotHeight, 0]).clamp(true);
+            state.scales.xIndexToOffset = function(d) { return state.scales.xToOffset(state.scales.indexToX(d)); };
+            state.scales.yIndexToOffset = function(d) { return state.scales.yToOffset(state.scales.indexToY(d)); };
+
+            state.scales.offsetToX = d3.scale.linear().domain([0, state.plotWidth]).range([0, state.xLimit]);
+            state.scales.offsetToY = d3.scale.linear().domain([state.plotHeight, 0]).range([0, state.yLimit]);
 
 			state.heatModel = {};
 			
-			state.heatModel.xScale = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.xLimit]);
-			state.heatModel.yScale = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.yLimit]);
+
 			
-			state.heatModel.grid = d3.rw.functionGrid(state.utilityFunction, state.heatModel.xScale, state.heatModel.yScale);
+			state.heatModel.grid = d3.rw.functionGrid(state.utilityFunction, state.scales.indexToX, state.scales.indexToY);
 			
 			state.minUtility = d3.min(state.heatModel.grid, function(col) {
 				return d3.min(col);
@@ -95,36 +103,39 @@
 			Display.svgDrawHeatMap();
 			
 			state.line = d3.svg.line();
-			
-			state.indifferenceCurve = state.svg.append("path")
-				.attr("class", "indifference-curve");
 
-            state.indifferenceCurves = [];
+            state.indifferenceCurve = d3.rw.indifferenceCurve()
+                .grid(state.heatModel.grid)
+                .xScale(state.scales.xIndexToOffset)
+                .yScale(state.scales.yIndexToOffset)
+                .line(state.line);
+			state.svg.append("g").call(state.indifferenceCurve);
+
             for(var i = 0; i < state.config.numCurves; i++) {
                 var value = state.utilityFunction((i + 1) * state.xLimit / (state.config.numCurves + 1), (i + 1) * state.yLimit / (state.config.numCurves + 1));
-                var points = d3.rw.indifferenceCurve(state.heatModel.grid, value)
-                    .map(function(d) {
-                        return [state.xPosition(state.heatModel.xScale(d[0])), state.yPosition(state.heatModel.yScale(d[1]))];
-                    });
 
-                state.indifferenceCurves[i] = state.svg.append("path")
-                    .attr("class", "indifference-curve")
-                    .datum(points)
-                    .attr("d", state.line);
+                var curve = d3.rw.indifferenceCurve()
+                    .grid(state.heatModel.grid)
+                    .xScale(state.scales.xIndexToOffset)
+                    .yScale(state.scales.yIndexToOffset)
+                    .value(value)
+                    .line(state.line);
+
+                state.svg.append("g").call(curve);
             }
 
             //        (d3.event.pageY-10)+"px").style("left",(d3.event.pageX+10)+"px");})
 
             state.svg.on("mousemove", function() {
                 var position = d3.mouse(this);
-                Display.svgDrawHoverText(position[0], position[1]);
+                Display.svgDrawHoverData(position[0], position[1]);
             });
 		},
 		
 		svgDrawHeatMap: function() {
 		
-			var width = state.xPosition(state.heatModel.xScale(1));
-			var height = state.yPosition(state.heatModel.yScale(state.dotsPerLine - 2));
+			var width = state.scales.xToOffset(state.scales.indexToX(1));
+			var height = state.scales.yToOffset(state.scales.indexToY(state.dotsPerLine - 2));
 
 			var verticalGradients = state.heatMap.selectAll(".verticalGradient")
 				.data(state.heatModel.grid)
@@ -158,7 +169,7 @@
 				.attr("y", function(d,i) { return 0; })
 				.attr("width", width)
 				.attr("height", state.plotHeight)
-				.attr("stroke", "none")
+				.attr("stroke", "transparent")
 				.attr("fill", function(d, i) { return "url(#verticalGradient-" + i + ")"; });
 			
 			var horizontalGradients = state.heatMap.selectAll(".horizontalGradient")
@@ -200,22 +211,33 @@
 				.attr("y", function(d,i) { return state.plotHeight - height - i*height; })
 				.attr("width", state.plotWidth)
 				.attr("height", height)
+                .attr("stroke", "transparent")
 				.attr("fill", function(d, i) { return "url(#horizontalGradient-" + i + ")"; });
 			
 		},
 
-        svgDrawHoverText: function(x, y) {
-            var utility = state.utilityFunction(state.xAtPosition(x), state.yAtPosition(y));
+        svgDrawHoverData: function(x, y) {
+            var utility = state.utilityFunction(state.scales.offsetToX(x), state.scales.offsetToY(y));
 
             var hoverText = state.svg.selectAll(".hover-text").data([utility]);
             hoverText.enter()
                 .append("text")
                 .attr("class", "hover-text")
-                .style("fille", "black");
+                .style("fill", "grey");
             hoverText
                 .attr("x", x + 10)
                 .attr("y", y - 10)
                 .text(function(d) { return "[" + d.toFixed(2) + "]"; });
+
+            var hoverPoint = state.svg.selectAll(".hover-point").data([{x: x, y: y}]);
+            hoverPoint.enter()
+                .append("circle")
+                .attr("class", "hover-point")
+                .attr("r", 5)
+                .style("fill", "grey");
+            hoverPoint
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; });
         },
 
         svgDrawAllocation: function() {
@@ -228,172 +250,21 @@
                 .attr("r", 5)
                 .style("fill", "black");
             allocationPoint
-                .attr("cx", function(d) { return state.xPosition(d.x); })
-                .attr("cy", function(d) { return state.yPosition(d.y); });
+                .attr("cx", function(d) { return state.scales.xToOffset(d.x); })
+                .attr("cy", function(d) { return state.scales.yToOffset(d.y); });
 
             var allocationText = state.svg.selectAll(".allocation-text").data([state.allocation]);
             allocationText.enter()
                 .append("text")
                 .attr("class", "allocation-text");
             allocationText
-                .attr("x", function(d) { return state.xPosition(d.x) + 10; })
-                .attr("y", function(d) { return state.yPosition(d.y) - 10; })
+                .attr("x", function(d) { return state.scales.xToOffset(d.x) + 10; })
+                .attr("y", function(d) { return state.scales.yToOffset(d.y) - 10; })
                 .text("[" + utility.toFixed(2) + "]");
 
-            var points = d3.rw.indifferenceCurve(state.heatModel.grid, utility)
-                .map(function(d) {
-                    return [state.xPosition(state.heatModel.xScale(d[0])), state.yPosition(state.heatModel.yScale(d[1]))];
-                });
+            state.indifferenceCurve.value(utility);
 
-            state.indifferenceCurve
-                .datum(points)
-                .attr("d", state.line);
-
-        },
-
-		replot: function() { //Redraw plot area
-		
-			var dataset = [];
-			
-			if(state.heatMap) {
-				state.heatMap.forEach(function(p) {
-					dataset.push(p);
-				});
-			}
-			
-			/*if(state.) {
-				dataset.push({ //contour line at current allocation
-					data: state.contourPoints,
-					lines: { show: true },
-					points: { show: true },
-					color: "blue",
-					hoverable: false
-				});
-			}*/
-			
-			dataset.push({ //Budget line
-				data: [[0, state.maxY], [state.maxX, 0]],
-				lines: { show: true, lineWidth: 1.5 },
-				points: { show: false },
-				color: "red"
-			});
-
-			if(state.cursor) {
-				dataset.push({ //hollow cursor dot
-					data: [state.cursor],
-					lines: { show: false },
-					points: { show: true, fill: false, radius: 4 },
-					color: "black",
-					hoverable: false
-				});
-			}
-			
-			if(state.showDefault) {
-				dataset.push({ //grey default dot
-					data: [[state.Ex, state.Ey]],
-					lines: { show: false },
-					points: { show: true, lineWidth: 4, fill: true, radius: 3 },
-					color: "grey",
-					hoverable: false
-				});
-				dataset.push({ //grey default dot
-					data: [[state.Ex, state.Ey]],
-					lines: { show: false },
-					points: { show: true, fill: true, radius: 1 },
-					color: "grey",
-					hoverable: false
-				});
-			}
-
-			if(state.allocation) {
-				dataset.push({ //black allocation dot
-					data: [[state.allocation.x, state.allocation.y]],
-					lines: { show: false },
-					points: { show: true, lineWidth: 4, fill: true, radius: 4 },
-					color: "black",
-					hoverable: false
-				});
-				dataset.push({ //black allocation dot
-					data: [[state.allocation.x, state.allocation.y]],
-					lines: { show: false },
-					points: { show: true, fill: true, radius: 1 },
-					color: "black",
-					hoverable: false
-				});
-				if(!state.finalResult) {
-					dataset.push({ //dashed allocation lines
-						data: [[0, state.allocation.y], [state.allocation.x, state.allocation.y], [state.allocation.x, 0]],
-						dashes: { show: true, lineWidth: 1 },
-						color: "black",
-						hoverable: false
-					});
-				}
-			}
-			
-			if(state.finalResult) {
-				var resultPoint = state.finalResult.chosen === "x" ? [state.finalResult.x, 0] : [0, state.finalResult.y];
-				dataset.push({ //green result dot
-					data: [resultPoint],
-					lines: { show: false },
-					points: { show: true, lineWidth: 4, fill: true, radius: 3 },
-					color: "green",
-					hoverable: false
-				});
-				dataset.push({ //green result dot
-					data: [resultPoint],
-					lines: { show: false },
-					points: { show: true, fill: true, radius: 1 },
-					color: "#51a351",
-					hoverable: false
-				});
-				dataset.push({ //green result line
-					data: [resultPoint, [state.allocation.x, state.allocation.y]],
-					dashes: { show: true, lineWidth: 1 },
-					color: "#51a351",
-					hoverable: false
-				});
-			}
-
-			function draw_text(plot, ctx) { //display barrier and bankrupt text
-				if(state.cursor) {
-					var offset = plot.pointOffset({ x: state.cursor[0], y: state.cursor[1] });
-					var text = "[" + state.cursor[0].toFixed(2) + ", " + state.cursor[1].toFixed(2) + "]";
-					ctx.fillStyle = "grey";
-					ctx.fillText(text, offset.left + 10, offset.top - 10);
-				}
-
-				if(state.allocation) {
-					var offset = plot.pointOffset({ x: state.allocation.x, y: state.allocation.y });
-					var text = "[" + state.allocation.x.toFixed(2) + ", " + state.allocation.y.toFixed(2) + "]";
-					ctx.fillStyle = "black";
-					ctx.fillText(text, offset.left + 10, offset.top - 10);
-				}
-				
-				if(state.showDefault) {
-					var offset = plot.pointOffset({ x: state.Ex, y: state.Ey });
-					var text = "[" + state.Ex.toFixed(2) + ", " + state.Ey.toFixed(2) + "]";
-					ctx.fillStyle = "grey";
-					ctx.fillText(text, offset.left + 10, offset.top - 10);
-				}
-				
-				if(state.finalResult) {
-					var offset = plot.pointOffset({ x: resultPoint[0] , y: resultPoint[1] });
-					var text = "[" + (resultPoint[0] || resultPoint[1]).toFixed(2) + "]";
-					ctx.fillStyle = "#51a351";
-					ctx.fillText(text, offset.left + 10, offset.top - 10);
-				}
-			}
-
-			var opts = {
-				grid: { clickable: true, hoverable: true },
-				xaxis: { tickLength: 0, min: 0, max: state.xLimit },
-				yaxis: { tickLength: 0, min: 0, max: state.yLimit },
-				series: { shadowSize: 0 },
-				hooks: { draw: [draw_text] }
-			};
-
-			$.plot("#plot", dataset, opts);
-		}
+        }
 	};
 
 	rs.create = function() {
@@ -506,7 +377,7 @@
 			rs.set("results", finalResult);
 			if(state.config.plotResult) {
 				state.finalResult = finalResult;
-				Display.replot();
+				//Display.replot();
 				rs.next_period(5);
 			} else {
 				rs.next_period();
