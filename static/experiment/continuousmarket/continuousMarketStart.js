@@ -80,32 +80,25 @@
             state.scales.offsetToX = d3.scale.linear().domain([0, state.plotWidth]).range([0, state.xLimit]);
             state.scales.offsetToY = d3.scale.linear().domain([state.plotHeight, 0]).range([0, state.yLimit]);
 
-			state.heatModel = {};
+			state.utilityGrid = d3.rw.functionGrid(state.utilityFunction, state.scales.indexToX, state.scales.indexToY);
 			
-
-			
-			state.heatModel.grid = d3.rw.functionGrid(state.utilityFunction, state.scales.indexToX, state.scales.indexToY);
-			
-			state.minUtility = d3.min(state.heatModel.grid, function(col) {
+			state.minUtility = d3.min(state.utilityGrid, function(col) {
 				return d3.min(col);
 			});
-			state.maxUtility = d3.max(state.heatModel.grid, function(col) {
+			state.maxUtility = d3.max(state.utilityGrid, function(col) {
 				return d3.max(col);
 			});
 			
 			var colorRange = ["#0000ff", "#0000ff", "#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"];
 			var colorDomain = d3.rw.stretch([state.minUtility, state.maxUtility], colorRange.length);
-			state.heatModel.colorScale = d3.scale.linear().domain(colorDomain).range(colorRange);
-			
-			state.heatMap = state.svg.append("g")
-				.attr("class", "heatMap");
+			state.scales.colorScale = d3.scale.linear().domain(colorDomain).range(colorRange);
 			
 			Display.svgDrawHeatMap();
 			
 			state.line = d3.svg.line();
 
             state.indifferenceCurve = d3.rw.indifferenceCurve()
-                .grid(state.heatModel.grid)
+                .grid(state.utilityGrid)
                 .xScale(state.scales.xIndexToOffset)
                 .yScale(state.scales.yIndexToOffset)
                 .line(state.line);
@@ -115,7 +108,7 @@
                 var value = state.utilityFunction((i + 1) * state.xLimit / (state.config.numCurves + 1), (i + 1) * state.yLimit / (state.config.numCurves + 1));
 
                 var curve = d3.rw.indifferenceCurve()
-                    .grid(state.heatModel.grid)
+                    .grid(state.utilityGrid)
                     .xScale(state.scales.xIndexToOffset)
                     .yScale(state.scales.yIndexToOffset)
                     .value(value)
@@ -124,8 +117,6 @@
                 state.svg.append("g").call(curve);
             }
 
-            //        (d3.event.pageY-10)+"px").style("left",(d3.event.pageX+10)+"px");})
-
             state.svg.on("mousemove", function() {
                 var position = d3.mouse(this);
                 Display.svgDrawHoverData(position[0], position[1]);
@@ -133,87 +124,12 @@
 		},
 		
 		svgDrawHeatMap: function() {
-		
-			var width = state.scales.xToOffset(state.scales.indexToX(1));
-			var height = state.scales.yToOffset(state.scales.indexToY(state.dotsPerLine - 2));
-
-			var verticalGradients = state.heatMap.selectAll(".verticalGradient")
-				.data(state.heatModel.grid)
-				.enter()
-				.append("linearGradient")
-				.attr("class", "verticalGradient")
-				.attr("id", function(d, i) {
-					return "verticalGradient-" + i;})
-				.attr("x1", "100%")
-				.attr("y1", "100%")
-				.attr("x2", "100%")
-				.attr("y2", "0%")
-				.attr("spreadMethod", "pad");
-			
-			verticalGradients.selectAll("stop")
-				.data(function(d){return d;})
-				.enter()
-				.append("stop")
-				.attr("offset", function(d, i) {
-					return (i * 100 / (state.heatModel.grid.length - 1)) + "%"; })
-				.attr("stop-color", function(d, i) {
-					return state.heatModel.colorScale(d); })
-				.attr("stop-opacity", 1);
-
-			state.heatMap.selectAll(".verticalRect")
-				.data(state.heatModel.grid)
-				.enter()
-				.append("rect")
-				.attr("class", "verticalRect")
-				.attr("x", function(d,i) { return i*(width); })
-				.attr("y", function(d,i) { return 0; })
-				.attr("width", width)
-				.attr("height", state.plotHeight)
-				.attr("stroke", "transparent")
-				.attr("fill", function(d, i) { return "url(#verticalGradient-" + i + ")"; });
-			
-			var horizontalGradients = state.heatMap.selectAll(".horizontalGradient")
-				.data(state.heatModel.grid[0])
-				.enter()
-				.append("linearGradient")
-				.attr("class", "horizontalGradient")
-				.attr("id", function(d, i) {
-					return "horizontalGradient-" + i;})
-				.attr("x1", "0%")
-				.attr("y1", "0%")
-				.attr("x2", "100%")
-				.attr("y2", "0%")
-				.attr("spreadMethod", "pad");
-			
-			horizontalGradients.selectAll("stop")
-				.data(function(d1, y) {
-						var data = [];
-						state.heatModel.grid.forEach(function(col, x) {
-							data.push(state.heatModel.grid[x][y]);
-						});
-						return data;
-					})
-				.enter()
-				.append("stop")
-				.attr("offset", function(d, i) {
-					return (i * 100 / (state.heatModel.grid.length - 1)) + "%"; })
-				.attr("stop-color", function(d, i) {
-					return state.heatModel.colorScale(d); })
-				.attr("stop-opacity", 0.5);
-
-			state.heatMap.selectAll(".horizontalRect")
-				.data(state.heatModel.grid)
-				.enter()
-				.append("g")
-				.append("rect")
-				.attr("class", "horizontalRect")
-				.attr("x", function(d,i) { return 0; })
-				.attr("y", function(d,i) { return state.plotHeight - height - i*height; })
-				.attr("width", state.plotWidth)
-				.attr("height", height)
-                .attr("stroke", "transparent")
-				.attr("fill", function(d, i) { return "url(#horizontalGradient-" + i + ")"; });
-			
+		    var heatMap = d3.rw.heatMap()
+                .grid(state.utilityGrid)
+                .xScale(state.scales.xIndexToOffset)
+                .yScale(state.scales.yIndexToOffset)
+                .colorScale(state.scales.colorScale);
+			state.svg.append("g").call(heatMap);
 		},
 
         svgDrawHoverData: function(x, y) {

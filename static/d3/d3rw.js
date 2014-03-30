@@ -118,41 +118,75 @@ d3.rw = d3.rw || {};
 
 })();
 
-(function() { //Indifference Curve
+(function() {
 
-    d3.rw.heatMap = function(grid, colorScale) {
-        var curve = [];
+    d3.rw.heatMap = function() {
 
-        var xEstimate, yEstimate;
-        var prevX = 0, prevY;
-        var width = grid.length, height = grid[0].length;
+        var grid,
+            xScale,
+            yScale,
+            colorScale;
 
-        for(var x = 1, maxX = width + 1; x < maxX; x++) {
+        function heatMap(g) {
 
-            prevY = 0;
+            var data = [],
+                sum,
+				dx = (xScale(1) - xScale(0)) > 0 ? 0 : 1,
+				dy = (yScale(1) - yScale(0)) > 0 ? 0 : 1;
 
-            for(var y = 1, maxY = height + 1; y < maxY; y++) {
-
-                // Check for x crossing
-                if (x < height && (grid[prevX][prevY] > value) !== (grid[x][prevY] > value)) {
-                    var xEstimate = prevX + (value - grid[prevX][prevY]) / (grid[x][prevY] - grid[prevX][prevY]);
-                    curve.push([xEstimate, prevY]);
+            for(var x = 0; x < grid.length - 1; x++) {
+                for(var y = 0; y < grid.length - 1; y++) {
+                    sum = grid[x][y] + grid[x + 1][y] + grid[x + 1][y + 1] + grid[x][y + 1];
+                    data.push({x: xScale(x + dx), y: yScale(y + dy), color: colorScale(sum / 4)});
                 }
-
-                // Check for y crossing
-                if(y < height && (grid[prevX][prevY] > value) !== (grid[prevX][y] > value)) {
-                    var yEstimate = prevY + (value - grid[prevX][prevY]) / (grid[prevX][y] - grid[prevX][prevY]);
-                    curve.push([prevX, yEstimate]);
-                }
-                prevY++;
             }
 
-            prevX++;
+			var width = Math.abs(xScale(1) - xScale(0)),
+				height = Math.abs(yScale(1) - yScale(0));
+
+            var rectangles = g.selectAll(".heatmap-rect").data(data);
+
+            rectangles.enter()
+                .append("rect")
+                .attr("class", "heatmap-rect");
+
+            rectangles
+                .attr("x", function(d) { return d.x; })
+                .attr("y", function(d) { return d.y; })
+                .attr("width", width)
+                .attr("height", height)
+                .style("stroke", function(d) { return d.color; })
+                .style("fill", function(d) { return d.color; });
+
+            rectangles.exit().remove();
         }
 
-        return curve.sort(function(a, b) {
-            return a[0] - b[0];
-        });
+        heatMap.grid = function(_) {
+            if (!arguments.length) return grid;
+            grid = _;
+            return heatMap;
+        };
+
+        heatMap.xScale = function(_) {
+            if (!arguments.length) return xScale;
+            xScale = _;
+            return heatMap;
+        };
+
+        heatMap.yScale = function(_) {
+            if (!arguments.length) return yScale;
+            yScale = _;
+            return heatMap;
+        };
+
+        heatMap.colorScale = function(_) {
+            if (!arguments.length) return colorScale;
+            colorScale = _;
+            return heatMap;
+        };
+
+        return heatMap;
+
     };
 
 })();
