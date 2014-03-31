@@ -64,11 +64,17 @@
 		},
 		
 		svgPrepare: function() {
+			var plotMargin = { top: 10, right: 10, bottom: 30, left: 40 };
+
 			state.svg = d3.select("#d3-plot");
-			state.plotWidth = $("#d3-plot").width();
-			state.plotHeight = $("#d3-plot").height();
-            
-            state.scales = {};
+
+			state.plotWidth = $("#d3-plot").width() - plotMargin.left - plotMargin.right;
+			state.plotHeight = $("#d3-plot").height() - plotMargin.bottom - plotMargin.top;
+
+			state.plot = state.svg.append("g")
+				.attr("transform", "translate(" + plotMargin.left + "," + plotMargin.top + ")");
+
+			state.scales = {};
 
             state.scales.indexToX = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.xLimit]);
             state.scales.indexToY = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.yLimit]);
@@ -77,8 +83,24 @@
             state.scales.xIndexToOffset = function(d) { return state.scales.xToOffset(state.scales.indexToX(d)); };
             state.scales.yIndexToOffset = function(d) { return state.scales.yToOffset(state.scales.indexToY(d)); };
 
-            state.scales.offsetToX = d3.scale.linear().domain([0, state.plotWidth]).range([0, state.xLimit]);
-            state.scales.offsetToY = d3.scale.linear().domain([state.plotHeight, 0]).range([0, state.yLimit]);
+            state.scales.offsetToX = d3.scale.linear().domain([0, state.plotWidth]).range([0, state.xLimit]).clamp(true);
+            state.scales.offsetToY = d3.scale.linear().domain([state.plotHeight, 0]).range([0, state.yLimit]).clamp(true);
+
+			state.xAxis = d3.svg.axis()
+				.scale(state.scales.xToOffset)
+				.outerTickSize(5);
+			state.plot.append("g")
+				.attr("transform", "translate(0," + (state.plotHeight) + ")")
+				.attr("class", "axis")
+				.call(state.xAxis);
+
+			state.yAxis = d3.svg.axis()
+				.scale(state.scales.yToOffset)
+				.orient("left")
+				.outerTickSize(5);
+			state.plot.append("g")
+				.attr("class", "axis")
+				.call(state.yAxis);
 
 			state.utilityGrid = d3.rw.functionGrid(state.utilityFunction, state.scales.indexToX, state.scales.indexToY);
 			
@@ -92,7 +114,7 @@
 			var colorRange = ["#0000ff", "#0000ff", "#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"];
 			var colorDomain = d3.rw.stretch([state.minUtility, state.maxUtility], colorRange.length);
 			state.scales.colorScale = d3.scale.linear().domain(colorDomain).range(colorRange);
-			
+
 			Display.svgDrawHeatMap();
 			
 			state.line = d3.svg.line();
@@ -102,7 +124,7 @@
                 .xScale(state.scales.xIndexToOffset)
                 .yScale(state.scales.yIndexToOffset)
                 .line(state.line);
-			state.svg.append("g").call(state.indifferenceCurve);
+			state.plot.append("g").call(state.indifferenceCurve);
 
             for(var i = 0; i < state.config.numCurves; i++) {
                 var value = state.utilityFunction((i + 1) * state.xLimit / (state.config.numCurves + 1), (i + 1) * state.yLimit / (state.config.numCurves + 1));
@@ -114,10 +136,10 @@
                     .value(value)
                     .line(state.line);
 
-                state.svg.append("g").call(curve);
+                state.plot.append("g").call(curve);
             }
 
-            state.svg.on("mousemove", function() {
+            state.plot.on("mousemove", function() {
                 var position = d3.mouse(this);
                 Display.svgDrawHoverData(position[0], position[1]);
             });
@@ -129,23 +151,28 @@
                 .xScale(state.scales.xIndexToOffset)
                 .yScale(state.scales.yIndexToOffset)
                 .colorScale(state.scales.colorScale);
-			state.svg.append("g").call(heatMap);
+			state.plot.append("g").call(heatMap);
 		},
 
         svgDrawHoverData: function(x, y) {
-            var utility = state.utilityFunction(state.scales.offsetToX(x), state.scales.offsetToY(y));
+			var x = state.scales.offsetToX(x),
+				xOffset = state.scales.xToOffset(x),
+				y = state.scales.offsetToY(y);
+				yOffset = state.scales.yToOffset(y);
 
-            var hoverText = state.svg.selectAll(".hover-text").data([utility]);
+			var utility = state.utilityFunction(x, y);
+
+			var hoverText = state.plot.selectAll(".hover-text").data([utility]);
             hoverText.enter()
                 .append("text")
                 .attr("class", "hover-text")
                 .style("fill", "grey");
             hoverText
-                .attr("x", x + 10)
-                .attr("y", y - 10)
+                .attr("x", xOffset + 10)
+                .attr("y", yOffset - 10)
                 .text(function(d) { return "[" + d.toFixed(2) + "]"; });
 
-            var hoverPoint = state.svg.selectAll(".hover-point").data([{x: x, y: y}]);
+            var hoverPoint = state.plot.selectAll(".hover-point").data([{x: xOffset, y: yOffset}]);
             hoverPoint.enter()
                 .append("circle")
                 .attr("class", "hover-point")
@@ -159,7 +186,7 @@
         svgDrawAllocation: function() {
             var utility = state.utilityFunction(state.allocation.x, state.allocation.y);
 
-            var allocationPoint = state.svg.selectAll(".allocation-point").data([state.allocation]);
+            var allocationPoint = state.plot.selectAll(".allocation-point").data([state.allocation]);
             allocationPoint.enter()
                 .append("circle")
                 .attr("class", "allocation-point")
@@ -169,7 +196,7 @@
                 .attr("cx", function(d) { return state.scales.xToOffset(d.x); })
                 .attr("cy", function(d) { return state.scales.yToOffset(d.y); });
 
-            var allocationText = state.svg.selectAll(".allocation-text").data([state.allocation]);
+            var allocationText = state.plot.selectAll(".allocation-text").data([state.allocation]);
             allocationText.enter()
                 .append("text")
                 .attr("class", "allocation-text");
