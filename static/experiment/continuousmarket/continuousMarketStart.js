@@ -18,49 +18,75 @@
 				//Display.replot();
 			});
 
-			$("#plot").bind("plothover", function (event, pos, item) {
-				if(!state.inputsEnabled) return;
-				var x = Math.max(0, pos.x);
-				x = Math.min(state.maxX, x);
-				var y = (state.budget - (x * state.Px)) / state.config.Py;
-				state.cursor = [x, y];
-				//Display.replot();
-			});
-
-			$("#plot").bind("plotclick", function (event, pos, item) {
-				if(!state.inputsEnabled) return;
-				var x = Math.max(0, pos.x);
-				x = Math.min(state.maxX, x);
-				var y = (state.budget - (x * state.Px)) / state.config.Py;
-				rs.trigger("allocation", {x: x, y: y});
-			});
-
-			$("#plot").bind("mouseout", function (event) {
-				if(!state.inputsEnabled) return;
-				state.cursor = undefined;
-				//Display.replot();
-			});
-
 			rs.on("allocation", function(point) {
 				$("#confirm-button").removeAttr("disabled");
-				//Display.generateContourPoints(point[0], point[1]);
 				Display.svgDrawAllocation();
-				//Display.replot();
 			});
 
-			$("#confirm-button").click(function() {
+			$("#bid-button").click(function() {
 				if(!state.inputsEnabled) return;
-				if(!state.allocation) {
-					alert("Please select a ratio of x and y by clicking on the graph.");
+				$("#bid-button").attr("disabled", "disabled");
+				var price = parseFloat($("#bid-price").val());
+				var qty = parseFloat($("#bid-qty").val());
+				if(Display.isValidBid(price, qty)) {
+					$("#bid-price").val("");
+					$("#bid-qty").val("");
+					var id = rs.subject[rs.user_id].data.bid ? rs.subject[rs.user_id].data.bid.length : 0;
+					rs.trigger("bid", {id: id, price: price, qty: qty});
 				} else {
-					$("#confirm-button").attr("disabled", "disabled");
-					rs.trigger("confirm");
+					$("#bid-button").removeAttr("disabled");
 				}
 			});
 
-			rs.on("confirm", function() {
-				$("confirm-button").attr("disabled", "disabled");
+			rs.on("bid", function() {
+				$("#bid-button").removeAttr("disabled");
+				Display.displayBids();
 			});
+
+			rs.recv("bid", function() {
+				Display.displayBids();
+			});
+
+		},
+
+		openBid: function(event) {
+			if(!state.inputsEnabled) return;
+			var index = $(this).attr("index");
+			var bid = state.bids[index];
+			if(bid.user_id != rs.user_id) {
+				$(this).attr("disabled", "disabled");
+				rs.trigger("accept", bid);
+			} else {
+				$("#bid-button").removeAttr("disabled");
+			}
+		},
+
+		displayBids: function() {
+			d3.select("#bids-container").selectAll(".bid").remove();
+			var bids = d3.select("#bids-container").selectAll(".bid").data(state.bids);
+			bids.enter().append("div")
+				.attr("class", "bid input-group input-group-sm")
+				.attr("index", function(d, i) {return i;})
+				.on("dblclick", Display.openBid);
+
+			bids.append("span")
+				.attr("class", "input-group-addon no-input")
+				.text(function(d) { return d.price })
+				.filter(function(d) { return d.user_id == rs.user_id })
+				.classed("alert-danger", true);
+
+			bids.append("span")
+				.attr("class", "input-group-addon no-input")
+				.text(function(d) { return d.qty })
+				.filter(function(d) { return d.user_id == rs.user_id })
+				.classed("alert-danger", true);
+		},
+
+		isValidBid: function(price, qty) {
+			return !isNaN(price)
+				&& price >= 0
+				&& !isNaN(qty)
+				&& qty >= 0;
 		},
 		
 		svgPrepare: function() {
@@ -243,7 +269,8 @@
 		});
 
 		rs.on("next_round", function() {
-			$("#confirm-button").attr("disabled", "disabled");
+
+			state.inputsEnabled = false;
 
 			if(state.rounds && state.round >= state.rounds) {
 				rs.trigger("next_period");
@@ -271,12 +298,12 @@
 			
 			state.xLimit = state.config.XLimit ? state.config.XLimit : state.maxX;
 			state.yLimit = state.config.YLimit ? state.config.YLimit : state.maxY;
+
+			state.bids = [];
 			
 			Display.svgPrepare();
 			
-			if(state.config.enableDefault) {
-				rs.trigger("allocation", {x: state.Ex, y: state.Ey});
-			}
+			rs.trigger("allocation", {x: state.Ex, y: state.Ey});
 
 			state.inputsEnabled = true;
 		});
@@ -285,25 +312,17 @@
 			state.allocation = allocation;
 		});
 
-		rs.on("confirm", function() {
-			state.inputsEnabled = false;
-			var chosen = Math.random() < state.config.ProbX ? "x" : "y";
-			rs.trigger("result", { x: state.allocation.x, y: state.allocation.y, chosen: chosen });
+		rs.on("bid", function(bid) {
+			state.bids.push($.extend(bid, {user_id: rs.user_id}))
+			state.bids.sort(function(a, b) {
+				return a.price - b.price;
+			});
+		});
 
-			rs.after_waiting_for_all(function() {
-				var excessDemandX = 0;
-				var excessDemandY = 0;
-				rs.subjects.where(function() {
-						return this.groupForPeriod && this.groupForPeriod === rs.subject[rs.user_id].groupForPeriod;
-					}).forEach(function(d) {
-						var allocation = d.get("allocation");
-						excessDemandX += allocation.x - state.Ex;
-						excessDemandY += allocation.y - state.Ey;
-				});
-				var newPriceX = priceUpdateFormula(state.Px, excessDemandX);
-				var newPriceY = priceUpdateFormula(state.Py, excessDemandY);
-				rs.set("prices", { x: newPriceX, y: newPriceY, deltaX: newPriceX - state.Px, deltaY: newPriceY - state.Py });
-				rs.trigger("next_round");
+		rs.recv("bid", function(user_id, bid) {
+			state.bids.push($.extend(bid, {user_id: user_id}));
+			state.bids.sort(function(a, b) {
+				return a.price - b.price;
 			});
 		});
 
