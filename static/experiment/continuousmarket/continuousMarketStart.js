@@ -18,8 +18,13 @@
 				//Display.replot();
 			});
 
-			rs.on("allocation", function(point) {
-				$("#confirm-button").removeAttr("disabled");
+			rs.on("accept", function(point) {
+				Display.displayOpenBids();
+				Display.svgDrawAllocation();
+			});
+
+			rs.recv("accept", function(sender, point) {
+				Display.displayOpenBids();
 				Display.svgDrawAllocation();
 			});
 
@@ -31,8 +36,8 @@
 				if(Display.isValidBid(price, qty)) {
 					$("#bid-price").val("");
 					$("#bid-qty").val("");
-					var id = rs.subject[rs.user_id].data.bid ? rs.subject[rs.user_id].data.bid.length : 0;
-					rs.trigger("bid", {id: id, price: price, qty: qty});
+					var index = rs.subject[rs.user_id].data.bid ? rs.subject[rs.user_id].data.bid.length : 0;
+					rs.trigger("bid", {index: index, price: price, qty: qty});
 				} else {
 					$("#bid-button").removeAttr("disabled");
 				}
@@ -40,45 +45,46 @@
 
 			rs.on("bid", function() {
 				$("#bid-button").removeAttr("disabled");
-				Display.displayBids();
+				Display.displayOpenBids();
 			});
 
 			rs.recv("bid", function() {
-				Display.displayBids();
+				Display.displayOpenBids();
 			});
 
 		},
 
-		openBid: function(event) {
+		selectBid: function(event) {
 			if(!state.inputsEnabled) return;
-			var index = $(this).attr("index");
-			var bid = state.bids[index];
+			var key = $(this).attr("key");
+			var bid = state.openBids[key];
 			if(bid.user_id != rs.user_id) {
 				$(this).attr("disabled", "disabled");
-				rs.trigger("accept", bid);
-			} else {
-				$("#bid-button").removeAttr("disabled");
+				rs.trigger("accept", {user_id: bid.user_id, index: bid.index});
 			}
 		},
 
-		displayBids: function() {
+		displayOpenBids: function() {
+			var data = Object.keys(state.openBids).sort(function(a, b) {
+				return state.openBids[a].price - state.openBids[b].price;
+			});
 			d3.select("#bids-container").selectAll(".bid").remove();
-			var bids = d3.select("#bids-container").selectAll(".bid").data(state.bids);
+			var bids = d3.select("#bids-container").selectAll(".bid").data(data);
 			bids.enter().append("div")
 				.attr("class", "bid input-group input-group-sm")
-				.attr("index", function(d, i) {return i;})
-				.on("dblclick", Display.openBid);
+				.attr("key", function(d) { return d; })
+				.on("dblclick", Display.selectBid);
 
 			bids.append("span")
 				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return d.price })
-				.filter(function(d) { return d.user_id == rs.user_id })
+				.text(function(d) { return state.openBids[d].price })
+				.filter(function(d) { return state.openBids[d].user_id == rs.user_id })
 				.classed("alert-danger", true);
 
 			bids.append("span")
 				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return d.qty })
-				.filter(function(d) { return d.user_id == rs.user_id })
+				.text(function(d) { return state.openBids[d].qty })
+				.filter(function(d) { return state.openBids[d].user_id == rs.user_id })
 				.classed("alert-danger", true);
 		},
 
@@ -143,14 +149,13 @@
 
 			Display.svgDrawHeatMap();
 			
-			state.line = d3.svg.line();
-
-            state.indifferenceCurve = d3.rw.indifferenceCurve()
+			state.indifferenceCurve = d3.rw.indifferenceCurve()
                 .grid(state.utilityGrid)
                 .xScale(state.scales.xIndexToOffset)
-                .yScale(state.scales.yIndexToOffset)
-                .line(state.line);
-			state.plot.append("g").call(state.indifferenceCurve);
+                .yScale(state.scales.yIndexToOffset);
+            state.plot.append("g").call(state.indifferenceCurve);
+
+			Display.svgDrawAllocation();
 
             for(var i = 0; i < state.config.numCurves; i++) {
                 var value = state.utilityFunction((i + 1) * state.xLimit / (state.config.numCurves + 1), (i + 1) * state.yLimit / (state.config.numCurves + 1));
@@ -159,8 +164,7 @@
                     .grid(state.utilityGrid)
                     .xScale(state.scales.xIndexToOffset)
                     .yScale(state.scales.yIndexToOffset)
-                    .value(value)
-                    .line(state.line);
+                    .value(value);
 
                 state.plot.append("g").call(curve);
             }
@@ -286,7 +290,7 @@
 			//Begin next round
 			state.round++;
 			state.cursor = undefined;
-			state.allocation = undefined;
+			state.allocation = {x: state.Ex, y: state.Ey};
 			
 			var prices = rs.subject[rs.user_id].get("prices");
 			state.Px = state.round > 1 ? prices.x : state.config.Px;
@@ -299,12 +303,10 @@
 			state.xLimit = state.config.XLimit ? state.config.XLimit : state.maxX;
 			state.yLimit = state.config.YLimit ? state.config.YLimit : state.maxY;
 
-			state.bids = [];
+			state.openBids = {};
 			
 			Display.svgPrepare();
 			
-			rs.trigger("allocation", {x: state.Ex, y: state.Ey});
-
 			state.inputsEnabled = true;
 		});
 
@@ -313,17 +315,35 @@
 		});
 
 		rs.on("bid", function(bid) {
-			state.bids.push($.extend(bid, {user_id: rs.user_id}))
-			state.bids.sort(function(a, b) {
-				return a.price - b.price;
-			});
+			bid = $.extend(bid, {user_id: rs.user_id});
+			var key = getBidKey(bid);
+			state.openBids[key] = bid;
 		});
 
 		rs.recv("bid", function(user_id, bid) {
-			state.bids.push($.extend(bid, {user_id: user_id}));
-			state.bids.sort(function(a, b) {
-				return a.price - b.price;
-			});
+			bid = $.extend(bid, {user_id: user_id});
+			var key = getBidKey(bid);
+			state.openBids[key] = bid;
+		});
+
+		rs.on("accept", function(bid) {
+			var key = getBidKey(bid);
+			if(state.openBids[key]) {
+				state.allocation.y -= state.openBids[key].price * state.openBids[key].qty;
+				state.allocation.x += state.openBids[key].qty;
+				delete state.openBids[key];
+			}
+		});
+
+		rs.recv("accept", function(sender, bid) {
+			var key = getBidKey(bid);
+			if(state.openBids[key]) {
+				if(bid.user_id == rs.user_id) {
+					state.allocation.y += state.openBids[key].price * state.openBids[key].qty;
+					state.allocation.x -= state.openBids[key].qty;
+				}
+				delete state.openBids[key];
+			}
 		});
 
 		rs.on("result", function(value) {
@@ -378,5 +398,9 @@
 		var priceUpdateFormula = function(currentPrice, excessDemand) {
 			return Math.max(currentPrice + excessDemand * (state.config.Z ? state.config.Z : 0), 0.01);
 		};
+
+		function getBidKey(bid) {
+			return bid.user_id + "-" + bid.index;
+		}
 
 	};

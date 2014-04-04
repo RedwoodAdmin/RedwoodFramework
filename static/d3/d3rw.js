@@ -24,7 +24,7 @@ d3.rw = d3.rw || {};
             xScale,
             yScale,
             value,
-            line,
+            line = d3.svg.line(),
             container;
 
         function draw() {
@@ -62,10 +62,10 @@ d3.rw = d3.rw || {};
             });
 
             var curve = container.selectAll(".indifference-curve").data([path]);
-            curve.enter().append("path")
-                .attr("class", "indifference-curve")
-                .attr("d", line);
-            curve.datum(function(d) { return d; });
+            curve.enter()
+				.append("path")
+                .attr("class", "indifference-curve");
+            curve.attr("d", line);
         }
 
         function indifferenceCurve(g) {
@@ -104,12 +104,6 @@ d3.rw = d3.rw || {};
                 draw();
             }
 
-            return indifferenceCurve;
-        };
-
-        indifferenceCurve.line = function(_) {
-            if (!arguments.length) return line;
-            line = _;
             return indifferenceCurve;
         };
 
