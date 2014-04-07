@@ -19,12 +19,12 @@
 			});
 
 			rs.on("accept", function(point) {
-				Display.displayOpenBids();
+				Display.updateTradePanels();
 				Display.svgDrawAllocation();
 			});
 
 			rs.recv("accept", function(sender, point) {
-				Display.displayOpenBids();
+				Display.updateTradePanels();
 				Display.svgDrawAllocation();
 			});
 
@@ -36,56 +36,131 @@
 				if(Display.isValidBid(price, qty)) {
 					$("#bid-price").val("");
 					$("#bid-qty").val("");
-					var index = rs.subject[rs.user_id].data.bid ? rs.subject[rs.user_id].data.bid.length : 0;
-					rs.trigger("bid", {index: index, price: price, qty: qty});
+					var index = rs.subject[rs.user_id].data.offer ? rs.subject[rs.user_id].data.offer.length : 0;
+					rs.trigger("offer", {index: index, price: price, qty: qty});
 				} else {
 					$("#bid-button").removeAttr("disabled");
 				}
 			});
 
-			rs.on("bid", function() {
-				$("#bid-button").removeAttr("disabled");
-				Display.displayOpenBids();
+			$("#ask-button").click(function() {
+				if(!state.inputsEnabled) return;
+				$("#ask-button").attr("disabled", "disabled");
+				var price = parseFloat($("#ask-price").val());
+				var qty = -parseFloat($("#ask-qty").val());
+				if(Display.isValidAsk(price, qty)) {
+					$("#ask-price").val("");
+					$("#ask-qty").val("");
+					var index = rs.subject[rs.user_id].data.offer ? rs.subject[rs.user_id].data.offer.length : 0;
+					rs.trigger("offer", {index: index, price: price, qty: qty});
+				} else {
+					$("#ask-button").removeAttr("disabled");
+				}
 			});
 
-			rs.recv("bid", function() {
-				Display.displayOpenBids();
+			rs.on("offer", function() {
+				$("#bid-button").removeAttr("disabled");
+				$("#ask-button").removeAttr("disabled");
+				Display.updateTradePanels();
+			});
+
+			rs.recv("offer", function() {
+				Display.updateTradePanels();
 			});
 
 		},
 
-		selectBid: function(event) {
+		selectOffer: function(event) {
 			if(!state.inputsEnabled) return;
 			var key = $(this).attr("key");
-			var bid = state.openBids[key];
-			if(bid.user_id != rs.user_id) {
+			var offer = state.offers[key];
+			if(offer.user_id != rs.user_id) {
 				$(this).attr("disabled", "disabled");
-				rs.trigger("accept", {user_id: bid.user_id, index: bid.index});
+				rs.trigger("accept", {user_id: offer.user_id, index: offer.index});
 			}
 		},
 
-		displayOpenBids: function() {
-			var data = Object.keys(state.openBids).sort(function(a, b) {
-				return state.openBids[a].price - state.openBids[b].price;
-			});
-			d3.select("#bids-container").selectAll(".bid").remove();
-			var bids = d3.select("#bids-container").selectAll(".bid").data(data);
+		updateTradePanels: function() {
+			var data = Object.keys(state.offers)
+				.filter(function(d) {
+					return state.offers[d].qty >= 0 && !state.offers[d].closed;
+				})
+				.sort(function(a, b) {
+					return state.offers[a].price - state.offers[b].price;
+				});
+
+			d3.select("#bids-container").selectAll(".offer").remove();
+			var bids = d3.select("#bids-container").selectAll(".offer").data(data);
 			bids.enter().append("div")
-				.attr("class", "bid input-group input-group-sm")
+				.attr("class", "offer input-group input-group-sm")
 				.attr("key", function(d) { return d; })
-				.on("dblclick", Display.selectBid);
+				.on("dblclick", Display.selectOffer);
 
 			bids.append("span")
 				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return state.openBids[d].price })
-				.filter(function(d) { return state.openBids[d].user_id == rs.user_id })
+				.text(function(d) { return state.offers[d].price })
+				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
 				.classed("alert-danger", true);
 
 			bids.append("span")
 				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return state.openBids[d].qty })
-				.filter(function(d) { return state.openBids[d].user_id == rs.user_id })
+				.text(function(d) { return state.offers[d].qty })
+				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
 				.classed("alert-danger", true);
+
+			data = Object.keys(state.offers)
+				.filter(function(d) {
+					return state.offers[d].qty < 0 && !state.offers[d].closed;
+				})
+				.sort(function(a, b) {
+					return state.offers[a].price - state.offers[b].price;
+				});
+
+			d3.select("#asks-container").selectAll(".offer").remove();
+			var asks = d3.select("#asks-container").selectAll(".offer").data(data);
+			asks.enter().append("div")
+				.attr("class", "offer input-group input-group-sm")
+				.attr("key", function(d) { return d; })
+				.on("dblclick", Display.selectOffer);
+
+			asks.append("span")
+				.attr("class", "input-group-addon no-input")
+				.text(function(d) { return state.offers[d].price })
+				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
+				.classed("alert-danger", true);
+
+			asks.append("span")
+				.attr("class", "input-group-addon no-input")
+				.text(function(d) { return -state.offers[d].qty })
+				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
+				.classed("alert-danger", true);
+
+			data = Object.keys(state.offers)
+				.filter(function(d) {
+					return state.offers[d].closed;
+				});
+
+			d3.select("#trades-container").selectAll(".trade").remove();
+			var asks = d3.select("#trades-container").selectAll(".trade").data(data);
+			asks.enter().append("div")
+				.attr("class", "trade input-group input-group-sm")
+				.attr("key", function(d) { return d; })
+				.on("dblclick", Display.selectTrade);
+
+			asks.append("span")
+				.attr("class", "input-group-addon no-input")
+				.text(function(d) { return state.offers[d].price })
+				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
+				.classed("alert-danger", true);
+
+			asks.append("span")
+				.attr("class", "input-group-addon no-input")
+				.text(function(d) { return state.offers[d].qty })
+				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
+				.classed("alert-danger", true);
+
+			$("#x-allocation").text(state.allocation.x);
+			$("#y-allocation").text(state.allocation.y);
 		},
 
 		isValidBid: function(price, qty) {
@@ -93,6 +168,13 @@
 				&& price >= 0
 				&& !isNaN(qty)
 				&& qty >= 0;
+		},
+
+		isValidAsk: function(price, qty) {
+			return !isNaN(price)
+				&& price >= 0
+				&& !isNaN(qty)
+				&& qty < 0;
 		},
 		
 		svgPrepare: function() {
@@ -303,7 +385,7 @@
 			state.xLimit = state.config.XLimit ? state.config.XLimit : state.maxX;
 			state.yLimit = state.config.YLimit ? state.config.YLimit : state.maxY;
 
-			state.openBids = {};
+			state.offers = {};
 			
 			Display.svgPrepare();
 			
@@ -314,35 +396,35 @@
 			state.allocation = allocation;
 		});
 
-		rs.on("bid", function(bid) {
-			bid = $.extend(bid, {user_id: rs.user_id});
-			var key = getBidKey(bid);
-			state.openBids[key] = bid;
+		rs.on("offer", function(offer) {
+			offer = $.extend(offer, {user_id: rs.user_id});
+			var key = getBidKey(offer);
+			state.offers[key] = offer;
 		});
 
-		rs.recv("bid", function(user_id, bid) {
-			bid = $.extend(bid, {user_id: user_id});
-			var key = getBidKey(bid);
-			state.openBids[key] = bid;
+		rs.recv("offer", function(user_id, offer) {
+			offer = $.extend(offer, {user_id: user_id});
+			var key = getBidKey(offer);
+			state.offers[key] = offer;
 		});
 
-		rs.on("accept", function(bid) {
-			var key = getBidKey(bid);
-			if(state.openBids[key]) {
-				state.allocation.y -= state.openBids[key].price * state.openBids[key].qty;
-				state.allocation.x += state.openBids[key].qty;
-				delete state.openBids[key];
+		rs.on("accept", function(offer) {
+			var key = getBidKey(offer);
+			if(state.offers[key]) {
+				state.allocation.y -= state.offers[key].price * state.offers[key].qty;
+				state.allocation.x += state.offers[key].qty;
+				state.offers[key].closed = true;
 			}
 		});
 
-		rs.recv("accept", function(sender, bid) {
-			var key = getBidKey(bid);
-			if(state.openBids[key]) {
-				if(bid.user_id == rs.user_id) {
-					state.allocation.y += state.openBids[key].price * state.openBids[key].qty;
-					state.allocation.x -= state.openBids[key].qty;
+		rs.recv("accept", function(sender, offer) {
+			var key = getBidKey(offer);
+			if(state.offers[key]) {
+				if(offer.user_id == rs.user_id) {
+					state.allocation.y += state.offers[key].price * state.offers[key].qty;
+					state.allocation.x -= state.offers[key].qty;
 				}
-				delete state.openBids[key];
+				state.offers[key].closed = true;
 			}
 		});
 
@@ -399,8 +481,8 @@
 			return Math.max(currentPrice + excessDemand * (state.config.Z ? state.config.Z : 0), 0.01);
 		};
 
-		function getBidKey(bid) {
-			return bid.user_id + "-" + bid.index;
+		function getBidKey(offer) {
+			return offer.user_id + "-" + offer.index;
 		}
 
 	};
