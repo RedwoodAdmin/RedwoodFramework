@@ -16,6 +16,8 @@ var RedwoodSubject = {
 		rs._msg_handlers = {};
 
 		rs._pause = {};
+
+		rs.data = {};
 		
 		rs._handle_event_msg = function(msg) {
 			if(msg.Period != rw.periods[msg.Sender]) return;
@@ -335,6 +337,10 @@ var RedwoodSubject = {
 		rw.recv_subjects("*", function(msg) {
 			if((msg.Period > 0 && msg.Period != rw.periods[msg.Sender])
 					|| !rs.subject[msg.Sender]) return;
+			if(!rs.data[msg.Key]) {
+				rs.data[msg.Key] = [];
+			}
+			rs.data[msg.Key].push(msg.Value);
 			if(!rs.subject[msg.Sender].data[msg.Key]) {
 				rs.subject[msg.Sender].data[msg.Key] = [];
 			}

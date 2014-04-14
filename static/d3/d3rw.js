@@ -64,7 +64,8 @@ d3.rw = d3.rw || {};
             var curve = container.selectAll(".indifference-curve").data([path]);
             curve.enter()
 				.append("path")
-                .attr("class", "indifference-curve");
+                .attr("class", "indifference-curve")
+				.style("fill", "none");
             curve.attr("d", line);
         }
 
