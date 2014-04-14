@@ -9,14 +9,21 @@
 
             var width = $("#d3-plot").width();
             $("#d3-plot").css("height", width);
+			if(state.config.showHeatmap) {
+				$("#d3-plot").show();
+			}
+
+			if(state.config.canBid) $("#bidForm").show();
+			if(state.config.canAsk) $("#askForm").show();
 
 			$("#prob-x").text(state.config.ProbX);
 			$("#prob-y").text(1 - state.config.ProbX);
 
 			rs.on("next_round", function() {
 				$("[name='round']").text(state.round + (state.rounds ? " / " + state.rounds : ""));
-				//Display.replot();
 			});
+
+			$("#accept").click(Display.acceptOffer);
 
 			rs.on("accept", function(point) {
 				Display.updateTradePanels();
@@ -28,8 +35,16 @@
 				Display.svgDrawAllocation();
 			});
 
+			rs.on("trade", function(point) {
+				Display.updateTradePanels();
+			});
+
+			rs.recv("trade", function(point) {
+				Display.updateTradePanels();
+			});
+
 			$("#bid-button").click(function() {
-				if(!state.inputsEnabled) return;
+				if(!state.inputsEnabled || !state.config.canBid) return;
 				$("#bid-button").attr("disabled", "disabled");
 				var price = parseFloat($("#bid-price").val());
 				var qty = parseFloat($("#bid-qty").val());
@@ -44,7 +59,7 @@
 			});
 
 			$("#ask-button").click(function() {
-				if(!state.inputsEnabled) return;
+				if(!state.inputsEnabled || !state.config.canAsk) return;
 				$("#ask-button").attr("disabled", "disabled");
 				var price = parseFloat($("#ask-price").val());
 				var qty = -parseFloat($("#ask-qty").val());
@@ -70,20 +85,63 @@
 
 		},
 
-		selectOffer: function(event) {
+		projectOffer: function(event) {
 			if(!state.inputsEnabled) return;
 			var key = $(this).attr("key");
 			var offer = state.offers[key];
+			if(offer.user_id === rs.user_id) return;
+			if(offer.qty < 0 && !state.config.canBuy) return;
+			if(offer.qty > 0 && !state.config.canSell) return;
+			var y = state.allocation.y - (offer.price * offer.qty);
+			var x = state.allocation.x + offer.qty;
+			Display.svgDrawHoverData(x, y);
+		},
+
+		openOffer: function(event) {
+			if(!state.inputsEnabled) return;
+			var key = $(this).attr("key");
+			var offer = state.offers[key];
+			if(offer.qty < 0 && !state.config.canBuy && offer.user_id !== rs.user_id) return;
+			if(offer.qty > 0 && !state.config.canSell && offer.user_id !== rs.user_id) return;
 			if(offer.user_id != rs.user_id) {
+				Display.populateAcceptModal(key);
+				$("#acceptQty").val(Math.abs(offer.qty));
+				$("#accept").removeAttr("disabled");
+				$("#acceptModal").modal('show');
+			}
+		},
+
+		populateAcceptModal: function(key) {
+			var offer = state.offers[key];
+			$("#acceptType").text(offer.qty > 0 ? "Bid" : "Ask");
+			$("#acceptPrice").text(Math.abs(offer.price));
+			$("#acceptMaxQty").text(Math.abs(offer.qty));
+			$("#acceptQty").attr("max", Math.abs(offer.qty));
+			$("#accept").attr("key", key);
+			$("#acceptQty").val(Math.min(Math.abs(offer.qty), $("#acceptQty").val()));
+		},
+
+		acceptOffer: function(event) {
+			if(!state.inputsEnabled) return;
+			var key = $(this).attr("key");
+			var offer = state.offers[key];
+			if(offer.qty > 0 && !state.config.canBuy) return;
+			if(offer.qty < 0 && !state.config.canSell) return;
+
+			var acceptedQty = parseFloat($("#acceptQty").val());
+			if(acceptedQty > 0 && acceptedQty <= Math.abs(offer.qty)) {
 				$(this).attr("disabled", "disabled");
-				rs.trigger("accept", {user_id: offer.user_id, index: offer.index});
+				rs.trigger("accept", {user_id: offer.user_id, key: key, qty: Math.abs(offer.qty) / offer.qty * acceptedQty});
+				$("#acceptModal").modal('hide');
+			} else {
+				alert("Please enter a valid quantity to accept for this offer.");
 			}
 		},
 
 		updateTradePanels: function() {
 			var data = Object.keys(state.offers)
 				.filter(function(d) {
-					return state.offers[d].qty >= 0 && !state.offers[d].closed;
+					return state.offers[d].qty > 0 && !state.offers[d].closed;
 				})
 				.sort(function(a, b) {
 					return state.offers[a].price - state.offers[b].price;
@@ -94,7 +152,8 @@
 			bids.enter().append("div")
 				.attr("class", "offer input-group input-group-sm")
 				.attr("key", function(d) { return d; })
-				.on("dblclick", Display.selectOffer);
+				.on("click", Display.projectOffer)
+				.on("dblclick", Display.openOffer);
 
 			bids.append("span")
 				.attr("class", "input-group-addon no-input")
@@ -121,7 +180,8 @@
 			asks.enter().append("div")
 				.attr("class", "offer input-group input-group-sm")
 				.attr("key", function(d) { return d; })
-				.on("dblclick", Display.selectOffer);
+				.on("click", Display.projectOffer)
+				.on("dblclick", Display.openOffer);
 
 			asks.append("span")
 				.attr("class", "input-group-addon no-input")
@@ -135,39 +195,41 @@
 				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
 				.classed("alert-danger", true);
 
+			data = rs.data.trade || [];
+			d3.select("#trades-container").selectAll(".trade").remove();
+			var trades = d3.select("#trades-container").selectAll(".trade").data(data);
+			trades.enter().append("div")
+				.attr("class", "trade input-group input-group-sm");
+
+			trades.append("span")
+				.attr("class", "input-group-addon no-input")
+				.text(function(d) { return state.offers[d.key].price })
+				.filter(function(d) { return state.offers[d.key].user_id == rs.user_id })
+				.classed("alert-danger", true);
+
+			trades.append("span")
+				.attr("class", "input-group-addon no-input")
+				.text(function(d) { return d.qty })
+				.filter(function(d) { return state.offers[d.key].user_id == rs.user_id })
+				.classed("alert-danger", true);
+
+			$("#x-allocation").text(state.allocation.x.toFixed(2));
+			$("#y-allocation").text(state.allocation.y.toFixed(2));
+
 			data = Object.keys(state.offers)
 				.filter(function(d) {
-					return state.offers[d].closed;
+					return d === $("#accept").attr("key");
 				});
-
-			d3.select("#trades-container").selectAll(".trade").remove();
-			var asks = d3.select("#trades-container").selectAll(".trade").data(data);
-			asks.enter().append("div")
-				.attr("class", "trade input-group input-group-sm")
-				.attr("key", function(d) { return d; })
-				.on("dblclick", Display.selectTrade);
-
-			asks.append("span")
-				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return state.offers[d].price })
-				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
-				.classed("alert-danger", true);
-
-			asks.append("span")
-				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return state.offers[d].qty })
-				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
-				.classed("alert-danger", true);
-
-			$("#x-allocation").text(state.allocation.x);
-			$("#y-allocation").text(state.allocation.y);
+			if(data.length > 0) {
+				Display.populateAcceptModal(data[0]);
+			}
 		},
 
 		isValidBid: function(price, qty) {
 			return !isNaN(price)
 				&& price >= 0
 				&& !isNaN(qty)
-				&& qty >= 0;
+				&& qty > 0;
 		},
 
 		isValidAsk: function(price, qty) {
@@ -235,7 +297,14 @@
                 .grid(state.utilityGrid)
                 .xScale(state.scales.xIndexToOffset)
                 .yScale(state.scales.yIndexToOffset);
-            state.plot.append("g").call(state.indifferenceCurve);
+            state.plot.append("g")
+				.attr("class", "selection-curve")
+				.call(state.indifferenceCurve);
+
+			state.hoverCurve = d3.rw.indifferenceCurve()
+				.grid(state.utilityGrid)
+				.xScale(state.scales.xIndexToOffset)
+				.yScale(state.scales.yIndexToOffset);
 
 			Display.svgDrawAllocation();
 
@@ -248,12 +317,14 @@
                     .yScale(state.scales.yIndexToOffset)
                     .value(value);
 
-                state.plot.append("g").call(curve);
+                state.plot.append("g")
+					.attr("class", "reference-curve")
+					.call(curve);
             }
 
             state.plot.on("mousemove", function() {
                 var position = d3.mouse(this);
-                Display.svgDrawHoverData(position[0], position[1]);
+                Display.svgDrawHoverData(state.scales.offsetToX(position[0]), state.scales.offsetToY(position[1]));
             });
 		},
 		
@@ -267,10 +338,10 @@
 		},
 
         svgDrawHoverData: function(x, y) {
-			var x = state.scales.offsetToX(x),
-				xOffset = state.scales.xToOffset(x),
-				y = state.scales.offsetToY(y);
-				yOffset = state.scales.yToOffset(y);
+			var xOffset = state.scales.xToOffset(x);
+			var xPercent = (x - state.scales.xToOffset.domain()[0]) / (state.scales.xToOffset.domain()[1] - state.scales.xToOffset.domain()[0]);
+			var yOffset = state.scales.yToOffset(y);
+			var yPercent = (y - state.scales.yToOffset.domain()[0]) / (state.scales.yToOffset.domain()[1] - state.scales.yToOffset.domain()[0]);
 
 			var utility = state.utilityFunction(x, y);
 
@@ -280,8 +351,8 @@
                 .attr("class", "hover-text")
                 .style("fill", "grey");
             hoverText
-                .attr("x", xOffset + 10)
-                .attr("y", yOffset - 10)
+                .attr("x", xOffset + (xPercent > 0.9 ? -50 : 10))
+                .attr("y", yOffset - (yPercent > 0.95 ? -15 : 10))
                 .text(function(d) { return "[" + d.toFixed(2) + "]"; });
 
             var hoverPoint = state.plot.selectAll(".hover-point").data([{x: xOffset, y: yOffset}]);
@@ -293,6 +364,12 @@
             hoverPoint
                 .attr("cx", function(d) { return d.x; })
                 .attr("cy", function(d) { return d.y; });
+
+			state.hoverCurveContainer = state.plot.selectAll(".hover-curve").data([0]);
+			state.hoverCurveContainer.enter()
+				.append("g")
+				.attr("class", "hover-curve");
+			state.hoverCurveContainer.call(state.hoverCurve.value(utility));
         },
 
         svgDrawAllocation: function() {
@@ -330,7 +407,7 @@
 
             state.utilityFunction = new Function(["x", "y"], "return " + state.config.utility + ";");
 			
-			state.dotsPerLine = 109;
+			state.dotsPerLine = 100;
 
 			Display.initialize();
 
@@ -361,12 +438,6 @@
 			if(state.rounds && state.round >= state.rounds) {
 				rs.trigger("next_period");
 				return;
-			} else if(state.round > 0 && state.config.x_over_y_threshold) {
-				var prices = rs.subject[rs.user_id].get("prices");
-				if(Math.abs(prices.x / prices.y) < state.config.x_over_y_threshold) {
-					rs.trigger("next_period");
-					return;
-				}
 			}
 
 			//Begin next round
@@ -374,16 +445,8 @@
 			state.cursor = undefined;
 			state.allocation = {x: state.Ex, y: state.Ey};
 			
-			var prices = rs.subject[rs.user_id].get("prices");
-			state.Px = state.round > 1 ? prices.x : state.config.Px;
-			state.Py = state.round > 1 ? prices.y : state.config.Py;
-
-			state.budget = (state.Ex * state.Px) + (state.Ey * state.config.Py);
-			state.maxX = state.budget / state.Px;
-			state.maxY = state.budget / state.config.Py;
-			
-			state.xLimit = state.config.XLimit ? state.config.XLimit : state.maxX;
-			state.yLimit = state.config.YLimit ? state.config.YLimit : state.maxY;
+			state.xLimit = state.config.XLimit;
+			state.yLimit = state.config.YLimit;
 
 			state.offers = {};
 			
@@ -398,33 +461,40 @@
 
 		rs.on("offer", function(offer) {
 			offer = $.extend(offer, {user_id: rs.user_id});
-			var key = getBidKey(offer);
+			var key = getOfferKey(offer);
 			state.offers[key] = offer;
 		});
 
 		rs.recv("offer", function(user_id, offer) {
 			offer = $.extend(offer, {user_id: user_id});
-			var key = getBidKey(offer);
+			var key = getOfferKey(offer);
 			state.offers[key] = offer;
 		});
 
-		rs.on("accept", function(offer) {
-			var key = getBidKey(offer);
-			if(state.offers[key]) {
-				state.allocation.y -= state.offers[key].price * state.offers[key].qty;
-				state.allocation.x += state.offers[key].qty;
-				state.offers[key].closed = true;
+		rs.on("accept", function(accepted) {
+			if(Math.abs(state.offers[accepted.key].qty) >= Math.abs(accepted.qty)) {
+				state.allocation.y -= state.offers[accepted.key].price * accepted.qty;
+				state.allocation.x += accepted.qty;
+				state.offers[accepted.key].qty -= accepted.qty;
+				if(state.offers[accepted.key].qty == 0) {
+					state.offers[accepted.key].closed = true;
+				}
+				rs.trigger("trade", accepted);
+			} else {
+				alert("Transaction failed.");
 			}
 		});
 
-		rs.recv("accept", function(sender, offer) {
-			var key = getBidKey(offer);
-			if(state.offers[key]) {
-				if(offer.user_id == rs.user_id) {
-					state.allocation.y += state.offers[key].price * state.offers[key].qty;
-					state.allocation.x -= state.offers[key].qty;
+		rs.recv("accept", function(sender, accepted) {
+			if(Math.abs(state.offers[accepted.key].qty) >= Math.abs(accepted.qty)) {
+				if(accepted.user_id == rs.user_id) {
+					state.allocation.y += state.offers[accepted.key].price * state.offers[accepted.key].qty;
+					state.allocation.x -= state.offers[accepted.key].qty;
 				}
-				state.offers[key].closed = true;
+				state.offers[accepted.key].qty -= accepted.qty;
+				if(state.offers[accepted.key].qty == 0) {
+					state.offers[accepted.key].closed = true;
+				}
 			}
 		});
 
@@ -441,7 +511,6 @@
 			rs.set("results", finalResult);
 			if(state.config.plotResult) {
 				state.finalResult = finalResult;
-				//Display.replot();
 				rs.next_period(5);
 			} else {
 				rs.next_period();
@@ -454,34 +523,25 @@
 
 			state.config.Ex = $.isArray(rs.config.Ex) ? rs.config.Ex[userIndex] : rs.config.Ex;
 			state.config.Ey = $.isArray(rs.config.Ey) ? rs.config.Ey[userIndex] : rs.config.Ey;
-			state.config.Px = $.isArray(rs.config.Px) ? rs.config.Px[userIndex] : rs.config.Px;
-			state.config.Py = $.isArray(rs.config.Py) ? rs.config.Py[userIndex] : rs.config.Py;
-			state.config.Z = $.isArray(rs.config.Z) ? rs.config.Z[userIndex] : rs.config.Z;
+			state.config.utility = $.isArray(rs.config.utility) ? rs.config.utility[userIndex] : rs.config.utility;
+			state.config.canBid = $.isArray(rs.config.canBid) ? rs.config.canBid[userIndex] : rs.config.canBid;
+			state.config.canAsk = $.isArray(rs.config.canAsk) ? rs.config.canAsk[userIndex] : rs.config.canAsk;
+			state.config.canBuy = $.isArray(rs.config.canBuy) ? rs.config.canBuy[userIndex] : rs.config.canBuy;
+			state.config.canSell = $.isArray(rs.config.canSell) ? rs.config.canSell[userIndex] : rs.config.canSell;
+
 			state.config.XLimit = $.isArray(rs.config.XLimit) ? rs.config.XLimit[userIndex] : rs.config.XLimit;
 			state.config.YLimit = $.isArray(rs.config.YLimit) ? rs.config.YLimit[userIndex] : rs.config.YLimit;
-			state.config.XGrid = $.isArray(rs.config.XGrid) ? rs.config.XGrid[userIndex] : rs.config.XGrid;
-			state.config.YGrid = $.isArray(rs.config.YGrid) ? rs.config.YGrid[userIndex] : rs.config.YGrid;
 			state.config.ProbX = $.isArray(rs.config.ProbX) ? rs.config.ProbX[userIndex] : rs.config.ProbX;
-			state.config.enableDefault = $.isArray(rs.config.enableDefault) ? rs.config.enableDefault[userIndex] : rs.config.enableDefault;
-			state.config.showDefault = $.isArray(rs.config.showDefault) ? rs.config.showDefault[userIndex] : rs.config.showDefault;
-			state.config.plotResult = $.isArray(rs.config.plotResult) ? rs.config.plotResult[userIndex] : rs.config.plotResult;
-            state.config.utility = $.isArray(rs.config.utility) ? rs.config.utility[userIndex] : rs.config.utility;
+			state.config.showHeatmap = $.isArray(rs.config.showHeatmap) ? rs.config.showHeatmap[userIndex] : rs.config.showHeatmap;
             state.config.numCurves = $.isArray(rs.config.numCurves) ? rs.config.numCurves[userIndex] : rs.config.numCurves;
 
 			state.config.rounds =  rs.config.rounds;
-			if(rs.config.x_over_y_threshold) {
-				state.config.x_over_y_threshold = rs.config.x_over_y_threshold;
-			}
 
 			state.config.referencePeriod = rs.config.referencePeriod;
 			state.config.pause = rs.config.pause;
 		};
 
-		var priceUpdateFormula = function(currentPrice, excessDemand) {
-			return Math.max(currentPrice + excessDemand * (state.config.Z ? state.config.Z : 0), 0.01);
-		};
-
-		function getBidKey(offer) {
+		function getOfferKey(offer) {
 			return offer.user_id + "-" + offer.index;
 		}
 
