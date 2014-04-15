@@ -240,7 +240,7 @@
 		},
 		
 		svgPrepare: function() {
-			var plotMargin = { top: 10, right: 10, bottom: 30, left: 40 };
+			var plotMargin = { top: 10, right: 10, bottom: 40, left: 40 };
 
 			state.svg = d3.select("#d3-plot");
 
@@ -277,6 +277,19 @@
 			state.plot.append("g")
 				.attr("class", "axis")
 				.call(state.yAxis);
+
+			state.plot.append("text")
+				.attr("class", "axis label")
+				.attr("x", state.scales.xToOffset(state.xLimit / 2))
+				.attr("y", state.scales.yToOffset(0) + 35)
+				.text("[ X ]");
+
+			state.plot.append("text")
+				.attr("class", "axis label")
+				.attr("transform", "rotate(-90)")
+				.attr("y", state.scales.xToOffset(0) - 30)
+				.attr("x", -state.scales.yToOffset(state.yLimit / 2))
+				.text("[ Y ]");
 
 			state.utilityGrid = d3.rw.functionGrid(state.utilityFunction, state.scales.indexToX, state.scales.indexToY);
 			
@@ -411,18 +424,9 @@
 
 			Display.initialize();
 
-			if(state.config.referencePeriod) {
-				var referenceResult = rs.subject[rs.user_id].data.results.firstWhere(function() {
-					return this.period === state.config.referencePeriod;
-				});
-				state.Ex = referenceResult.x;
-				state.Ey = referenceResult.y;
+			state.Ex = state.config.Ex;
+			state.Ey = state.config.Ey;
 
-			} else {
-				state.Ex = state.config.Ex;
-				state.Ey = state.config.Ey;
-			}
-			
 			state.showDefault = state.config.enableDefault && state.config.showDefault;
 
 			state.rounds = state.config.rounds || 1;
@@ -431,7 +435,27 @@
 
 		});
 
-		rs.on("next_round", function() {
+		var checkTime = function() {
+			var now = (new Date()).getTime() / 1000;
+			if (state.roundStartTime && (now - state.roundStartTime) > state.config.roundDuration) {
+				state.inputsEnabled = false;
+				state.roundStartTime = null;
+				rs.trigger("next_round");
+			} else {
+				state.timeChecker = setTimeout(checkTime, 1000);
+			}
+		};
+
+		rs.recv("next_round", function(sender, time) {
+			if(state.roundStartTime) {
+				state.inputsEnabled = false;
+				state.roundStartTime = null;
+				rs.trigger("next_round");
+			}
+		});
+
+
+		rs.on("next_round", function(time) {
 
 			state.inputsEnabled = false;
 
@@ -442,17 +466,23 @@
 
 			//Begin next round
 			state.round++;
-			state.cursor = undefined;
-			state.allocation = {x: state.Ex, y: state.Ey};
-			
-			state.xLimit = state.config.XLimit;
-			state.yLimit = state.config.YLimit;
 
-			state.offers = {};
-			
-			Display.svgPrepare();
-			
-			state.inputsEnabled = true;
+			rs.after_waiting_for_all(function() {
+				state.roundStartTime = (new Date()).getTime() / 1000;
+				rs.schedule(checkTime);
+
+				state.allocation = {x: state.Ex, y: state.Ey};
+
+				state.xLimit = state.config.XLimit;
+				state.yLimit = state.config.YLimit;
+
+				state.offers = {};
+
+				Display.svgPrepare();
+				Display.updateTradePanels();
+
+				state.inputsEnabled = true;
+			});
 		});
 
 		rs.on("allocation", function(allocation) {
@@ -506,15 +536,11 @@
 		});
 
 		rs.on("next_period", function() {
-			var finalResult = state.results[state.results.length - 1];
+			var finalResult = {x: state.allocation.x, y: state.allocation.y, utility: state.utilityFunction(state.allocation.x, state.allocation.y)};
 			finalResult.period = rs.period;
 			rs.set("results", finalResult);
-			if(state.config.plotResult) {
-				state.finalResult = finalResult;
-				rs.next_period(5);
-			} else {
-				rs.next_period();
-			}
+			rs.add_points(state.utilityFunction(state.allocation.x, state.allocation.y));
+			rs.next_period();
 		});
 
 		var processConfig = function() {
@@ -536,8 +562,8 @@
             state.config.numCurves = $.isArray(rs.config.numCurves) ? rs.config.numCurves[userIndex] : rs.config.numCurves;
 
 			state.config.rounds =  rs.config.rounds;
+			state.config.roundDuration =  rs.config.roundDuration;
 
-			state.config.referencePeriod = rs.config.referencePeriod;
 			state.config.pause = rs.config.pause;
 		};
 
