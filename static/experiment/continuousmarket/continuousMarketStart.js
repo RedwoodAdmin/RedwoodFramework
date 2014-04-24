@@ -43,6 +43,20 @@
 				Display.updateTradePanels();
 			});
 
+			$("#bid-price").change(function() {
+				Display.onBidInputChange();
+			});
+			$("#bid-qty").change(function() {
+				Display.onBidInputChange();
+			});
+
+			$("#ask-price").change(function() {
+				Display.onAskInputChange();
+			});
+			$("#ask-qty").change(function() {
+				Display.onAskInputChange();
+			});
+
 			$("#bid-button").click(function() {
 				if(!state.inputsEnabled || !state.config.canBid) return;
 				$("#bid-button").attr("disabled", "disabled");
@@ -85,15 +99,41 @@
 
 		},
 
-		projectOffer: function(event) {
+		onBidInputChange: function() {
+			if(!state.inputsEnabled || !state.config.canBid) return;
+			var price = parseFloat($("#bid-price").val());
+			var qty = parseFloat($("#bid-qty").val());
+			if(Display.isValidBid(price, qty)) {
+				var y = state.allocation.y - (price * qty);
+				var x = state.allocation.x + qty;
+				Display.svgDrawHoverData(x, y);
+			} else {
+				Display.svgDrawHoverData(false);
+			}
+		},
+
+		onAskInputChange: function() {
+			if(!state.inputsEnabled || !state.config.canAsk) return;
+			var price = parseFloat($("#ask-price").val());
+			var qty = -parseFloat($("#ask-qty").val());
+			if(Display.isValidAsk(price, qty)) {
+				var y = state.allocation.y - (price * qty);
+				var x = state.allocation.x + qty;
+				Display.svgDrawHoverData(x, y);
+			} else {
+				Display.svgDrawHoverData(false);
+			}
+		},
+
+		projectOffer: function() {
 			if(!state.inputsEnabled) return;
 			var key = $(this).attr("key");
 			var offer = state.offers[key];
 			if(offer.user_id === rs.user_id) return;
 			if(offer.qty < 0 && !state.config.canBuy) return;
 			if(offer.qty > 0 && !state.config.canSell) return;
-			var y = state.allocation.y - (offer.price * offer.qty);
-			var x = state.allocation.x + offer.qty;
+			var y = state.allocation.y + (offer.price * offer.qty);
+			var x = state.allocation.x - offer.qty;
 			Display.svgDrawHoverData(x, y);
 		},
 
@@ -125,8 +165,8 @@
 			if(!state.inputsEnabled) return;
 			var key = $(this).attr("key");
 			var offer = state.offers[key];
-			if(offer.qty > 0 && !state.config.canBuy) return;
-			if(offer.qty < 0 && !state.config.canSell) return;
+			if(offer.qty < 0 && !state.config.canBuy) return;
+			if(offer.qty > 0 && !state.config.canSell) return;
 
 			var acceptedQty = parseFloat($("#acceptQty").val());
 			if(acceptedQty > 0 && acceptedQty <= Math.abs(offer.qty)) {
@@ -339,6 +379,40 @@
                 var position = d3.mouse(this);
                 Display.svgDrawHoverData(state.scales.offsetToX(position[0]), state.scales.offsetToY(position[1]));
             });
+
+			state.plot.on("mouseleave", function() {
+				Display.svgDrawHoverData(false);
+			});
+
+			state.plot.on("click", function() {
+				var position = d3.mouse(this);
+				Display.autoFill(state.scales.offsetToX(position[0]), state.scales.offsetToY(position[1]));
+			});
+		},
+
+		autoFill: function(x, y) {
+
+			$("#bid-qty").val(null);
+			$("#bid-price").val(null);
+			$("#ask-qty").val(null);
+			$("#ask-price").val(null);
+
+			var qty = x - state.allocation.x,
+				price = ((state.allocation.y - y) / qty);
+
+			if(qty > 0 && state.config.canBid) {
+				if(Display.isValidBid(price, qty)) {
+					$("#bid-qty").val(qty);
+					$("#bid-price").val(price);
+				}
+			}
+
+			if(qty < 0 && state.config.canAsk) {
+				if(Display.isValidAsk(price, qty)) {
+					$("#ask-qty").val(-qty);
+					$("#ask-price").val(price);
+				}
+			}
 		},
 		
 		svgDrawHeatMap: function() {
@@ -351,38 +425,48 @@
 		},
 
         svgDrawHoverData: function(x, y) {
-			var xOffset = state.scales.xToOffset(x);
-			var xPercent = (x - state.scales.xToOffset.domain()[0]) / (state.scales.xToOffset.domain()[1] - state.scales.xToOffset.domain()[0]);
-			var yOffset = state.scales.yToOffset(y);
-			var yPercent = (y - state.scales.yToOffset.domain()[0]) / (state.scales.yToOffset.domain()[1] - state.scales.yToOffset.domain()[0]);
 
-			var utility = state.utilityFunction(x, y);
-
-			var hoverText = state.plot.selectAll(".hover-text").data([utility]);
-            hoverText.enter()
-                .append("text")
-                .attr("class", "hover-text")
-                .style("fill", "grey");
-            hoverText
-                .attr("x", xOffset + (xPercent > 0.9 ? -50 : 10))
-                .attr("y", yOffset - (yPercent > 0.95 ? -15 : 10))
-                .text(function(d) { return "[" + d.toFixed(2) + "]"; });
-
-            var hoverPoint = state.plot.selectAll(".hover-point").data([{x: xOffset, y: yOffset}]);
-            hoverPoint.enter()
-                .append("circle")
-                .attr("class", "hover-point")
-                .attr("r", 5)
-                .style("fill", "grey");
-            hoverPoint
-                .attr("cx", function(d) { return d.x; })
-                .attr("cy", function(d) { return d.y; });
-
-			state.hoverCurveContainer = state.plot.selectAll(".hover-curve").data([0]);
-			state.hoverCurveContainer.enter()
+			var hoverContainer = state.plot.selectAll(".hover-container").data(x === false ? [] : [0]);
+			hoverContainer.enter()
 				.append("g")
-				.attr("class", "hover-curve");
-			state.hoverCurveContainer.call(state.hoverCurve.value(utility));
+				.attr("class", "hover-container");
+			hoverContainer.exit()
+				.remove();
+
+			if(x !== false) {
+				var xOffset = state.scales.xToOffset(x);
+				var xPercent = (x - state.scales.xToOffset.domain()[0]) / (state.scales.xToOffset.domain()[1] - state.scales.xToOffset.domain()[0]);
+				var yOffset = state.scales.yToOffset(y);
+				var yPercent = (y - state.scales.yToOffset.domain()[0]) / (state.scales.yToOffset.domain()[1] - state.scales.yToOffset.domain()[0]);
+
+				var utility = state.utilityFunction(x, y);
+
+				var hoverText = hoverContainer.selectAll(".hover-text").data([utility]);
+				hoverText.enter()
+					.append("text")
+					.attr("class", "hover-text")
+					.style("fill", "grey");
+				hoverText
+					.attr("x", xOffset + (xPercent > 0.9 ? -50 : 10))
+					.attr("y", yOffset - (yPercent > 0.95 ? -15 : 10))
+					.text(function(d) { return "[" + d.toFixed(2) + "]"; });
+
+				var hoverPoint = hoverContainer.selectAll(".hover-point").data([{x: xOffset, y: yOffset}]);
+				hoverPoint.enter()
+					.append("circle")
+					.attr("class", "hover-point")
+					.attr("r", 5)
+					.style("fill", "grey");
+				hoverPoint
+					.attr("cx", function(d) { return d.x; })
+					.attr("cy", function(d) { return d.y; });
+
+				state.hoverCurveContainer = hoverContainer.selectAll(".hover-curve").data([0]);
+				state.hoverCurveContainer.enter()
+					.append("g")
+					.attr("class", "hover-curve");
+				state.hoverCurveContainer.call(state.hoverCurve.value(utility));
+			}
         },
 
         svgDrawAllocation: function() {
@@ -469,7 +553,7 @@
 
 			rs.after_waiting_for_all(function() {
 				state.roundStartTime = (new Date()).getTime() / 1000;
-				rs.schedule(checkTime);
+				//rs.schedule(checkTime);
 
 				state.allocation = {x: state.Ex, y: state.Ey};
 
@@ -503,8 +587,8 @@
 
 		rs.on("accept", function(accepted) {
 			if(Math.abs(state.offers[accepted.key].qty) >= Math.abs(accepted.qty)) {
-				state.allocation.y -= state.offers[accepted.key].price * accepted.qty;
-				state.allocation.x += accepted.qty;
+				state.allocation.y += state.offers[accepted.key].price * accepted.qty;
+				state.allocation.x -= accepted.qty;
 				state.offers[accepted.key].qty -= accepted.qty;
 				if(state.offers[accepted.key].qty == 0) {
 					state.offers[accepted.key].closed = true;
@@ -518,8 +602,8 @@
 		rs.recv("accept", function(sender, accepted) {
 			if(Math.abs(state.offers[accepted.key].qty) >= Math.abs(accepted.qty)) {
 				if(accepted.user_id == rs.user_id) {
-					state.allocation.y += state.offers[accepted.key].price * state.offers[accepted.key].qty;
-					state.allocation.x -= state.offers[accepted.key].qty;
+					state.allocation.y -= state.offers[accepted.key].price * state.offers[accepted.key].qty;
+					state.allocation.x += state.offers[accepted.key].qty;
 				}
 				state.offers[accepted.key].qty -= accepted.qty;
 				if(state.offers[accepted.key].qty == 0) {
