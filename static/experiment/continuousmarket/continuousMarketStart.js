@@ -1,29 +1,52 @@
 
-	var rs = RedwoodSubject; //create an alias for RedwoodSubject
 
-	var state = {}; //State object
-	
-	var Display = { //Display controller
+Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($rootScope, $scope, rs) {
+
+	$scope.projectOffer = function(offer) {
+		if(!$scope.inputsEnabled) return;
+		if(offer.user_id === rs.user_id) return;
+		if(offer.qty < 0 && !$scope.config.canBuy) return;
+		if(offer.qty > 0 && !$scope.config.canSell) return;
+		var y = $scope.allocation.y + (offer.price * offer.qty);
+		var x = $scope.allocation.x - offer.qty;
+		Display.svgDrawHoverData(x, y);
+	};
+
+	$scope.openOffer = function(offer) {
+		if(!$scope.inputsEnabled) return;
+		if(offer.qty < 0 && !$scope.config.canBuy && offer.user_id !== rs.user_id) return;
+		if(offer.qty > 0 && !$scope.config.canSell && offer.user_id !== rs.user_id) return;
+		if(offer.user_id != rs.user_id) {
+			$scope.selectedOffer = offer;
+			$scope.acceptQty = Math.abs(offer.qty);
+			$("#accept").removeAttr("disabled");
+			$("#acceptModal").modal('show');
+		}
+	};
+
+	$scope.acceptOffer = function() {
+		if(!$scope.inputsEnabled) return;
+		var offer = $scope.selectedOffer;
+		if(offer.qty < 0 && !$scope.config.canBuy) return;
+		if(offer.qty > 0 && !$scope.config.canSell) return;
+
+		var acceptedQty = parseFloat($("#acceptQty").val());
+		if(acceptedQty > 0 && acceptedQty <= Math.abs(offer.qty)) {
+			$(this).attr("disabled", "disabled");
+			rs.trigger("accept", {user_id: offer.user_id, key: offer.key, qty: Math.abs(offer.qty) / offer.qty * acceptedQty});
+			$("#acceptModal").modal('hide');
+		} else {
+			alert("Please enter a valid quantity to accept for this offer.");
+		}
+	};
+
+	$scope.svgHeight = function() {
+		return $("#d3-plot").width();
+	};
+
+	var Display = {
 
 		initialize: function() {
-
-            var width = $("#d3-plot").width();
-            $("#d3-plot").css("height", width);
-			if(state.config.showHeatmap) {
-				$("#d3-plot").show();
-			}
-
-			if(state.config.canBid) $("#bidForm").show();
-			if(state.config.canAsk) $("#askForm").show();
-
-			$("#prob-x").text(state.config.ProbX);
-			$("#prob-y").text(1 - state.config.ProbX);
-
-			rs.on("next_round", function() {
-				$("[name='round']").text(state.round + (state.rounds ? " / " + state.rounds : ""));
-			});
-
-			$("#accept").click(Display.acceptOffer);
 
 			rs.on("accept", function(point) {
 				Display.updateTradePanels();
@@ -58,7 +81,7 @@
 			});
 
 			$("#bid-button").click(function() {
-				if(!state.inputsEnabled || !state.config.canBid) return;
+				if(!$scope.inputsEnabled || !$scope.config.canBid) return;
 				$("#bid-button").attr("disabled", "disabled");
 				var price = parseFloat($("#bid-price").val());
 				var qty = parseFloat($("#bid-qty").val());
@@ -73,7 +96,7 @@
 			});
 
 			$("#ask-button").click(function() {
-				if(!state.inputsEnabled || !state.config.canAsk) return;
+				if(!$scope.inputsEnabled || !$scope.config.canAsk) return;
 				$("#ask-button").attr("disabled", "disabled");
 				var price = parseFloat($("#ask-price").val());
 				var qty = -parseFloat($("#ask-qty").val());
@@ -100,12 +123,12 @@
 		},
 
 		onBidInputChange: function() {
-			if(!state.inputsEnabled || !state.config.canBid) return;
+			if(!$scope.inputsEnabled || !$scope.config.canBid) return;
 			var price = parseFloat($("#bid-price").val());
 			var qty = parseFloat($("#bid-qty").val());
 			if(Display.isValidBid(price, qty)) {
-				var y = state.allocation.y - (price * qty);
-				var x = state.allocation.x + qty;
+				var y = $scope.allocation.y - (price * qty);
+				var x = $scope.allocation.x + qty;
 				Display.svgDrawHoverData(x, y);
 			} else {
 				Display.svgDrawHoverData(false);
@@ -113,156 +136,43 @@
 		},
 
 		onAskInputChange: function() {
-			if(!state.inputsEnabled || !state.config.canAsk) return;
+			if(!$scope.inputsEnabled || !$scope.config.canAsk) return;
 			var price = parseFloat($("#ask-price").val());
 			var qty = -parseFloat($("#ask-qty").val());
 			if(Display.isValidAsk(price, qty)) {
-				var y = state.allocation.y - (price * qty);
-				var x = state.allocation.x + qty;
+				var y = $scope.allocation.y - (price * qty);
+				var x = $scope.allocation.x + qty;
 				Display.svgDrawHoverData(x, y);
 			} else {
 				Display.svgDrawHoverData(false);
 			}
 		},
 
-		projectOffer: function() {
-			if(!state.inputsEnabled) return;
-			var key = $(this).attr("key");
-			var offer = state.offers[key];
-			if(offer.user_id === rs.user_id) return;
-			if(offer.qty < 0 && !state.config.canBuy) return;
-			if(offer.qty > 0 && !state.config.canSell) return;
-			var y = state.allocation.y + (offer.price * offer.qty);
-			var x = state.allocation.x - offer.qty;
-			Display.svgDrawHoverData(x, y);
-		},
-
-		openOffer: function(event) {
-			if(!state.inputsEnabled) return;
-			var key = $(this).attr("key");
-			var offer = state.offers[key];
-			if(offer.qty < 0 && !state.config.canBuy && offer.user_id !== rs.user_id) return;
-			if(offer.qty > 0 && !state.config.canSell && offer.user_id !== rs.user_id) return;
-			if(offer.user_id != rs.user_id) {
-				Display.populateAcceptModal(key);
-				$("#acceptQty").val(Math.abs(offer.qty));
-				$("#accept").removeAttr("disabled");
-				$("#acceptModal").modal('show');
-			}
-		},
-
-		populateAcceptModal: function(key) {
-			var offer = state.offers[key];
-			$("#acceptType").text(offer.qty > 0 ? "Bid" : "Ask");
-			$("#acceptPrice").text(Math.abs(offer.price));
-			$("#acceptMaxQty").text(Math.abs(offer.qty));
-			$("#acceptQty").attr("max", Math.abs(offer.qty));
-			$("#accept").attr("key", key);
-			$("#acceptQty").val(Math.min(Math.abs(offer.qty), $("#acceptQty").val()));
-		},
-
-		acceptOffer: function(event) {
-			if(!state.inputsEnabled) return;
-			var key = $(this).attr("key");
-			var offer = state.offers[key];
-			if(offer.qty < 0 && !state.config.canBuy) return;
-			if(offer.qty > 0 && !state.config.canSell) return;
-
-			var acceptedQty = parseFloat($("#acceptQty").val());
-			if(acceptedQty > 0 && acceptedQty <= Math.abs(offer.qty)) {
-				$(this).attr("disabled", "disabled");
-				rs.trigger("accept", {user_id: offer.user_id, key: key, qty: Math.abs(offer.qty) / offer.qty * acceptedQty});
-				$("#acceptModal").modal('hide');
-			} else {
-				alert("Please enter a valid quantity to accept for this offer.");
-			}
-		},
-
 		updateTradePanels: function() {
-			var data = Object.keys(state.offers)
+			$scope.bids = Object.keys($scope.offers)
 				.filter(function(d) {
-					return state.offers[d].qty > 0 && !state.offers[d].closed;
+					return $scope.offers[d].qty > 0 && !$scope.offers[d].closed;
 				})
 				.sort(function(a, b) {
-					return state.offers[a].price - state.offers[b].price;
+					return $scope.offers[a].price - $scope.offers[b].price;
+				})
+				.map(function(d) {
+					return $scope.offers[d];
 				});
 
-			d3.select("#bids-container").selectAll(".offer").remove();
-			var bids = d3.select("#bids-container").selectAll(".offer").data(data);
-			bids.enter().append("div")
-				.attr("class", "offer input-group input-group-sm")
-				.attr("key", function(d) { return d; })
-				.on("click", Display.projectOffer)
-				.on("dblclick", Display.openOffer);
 
-			bids.append("span")
-				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return state.offers[d].price })
-				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
-				.classed("alert-danger", true);
-
-			bids.append("span")
-				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return state.offers[d].qty })
-				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
-				.classed("alert-danger", true);
-
-			data = Object.keys(state.offers)
+			$scope.asks = Object.keys($scope.offers)
 				.filter(function(d) {
-					return state.offers[d].qty < 0 && !state.offers[d].closed;
+					return $scope.offers[d].qty < 0 && !$scope.offers[d].closed;
 				})
 				.sort(function(a, b) {
-					return state.offers[a].price - state.offers[b].price;
+					return $scope.offers[a].price - $scope.offers[b].price;
+				})
+				.map(function(d) {
+					return $scope.offers[d];
 				});
 
-			d3.select("#asks-container").selectAll(".offer").remove();
-			var asks = d3.select("#asks-container").selectAll(".offer").data(data);
-			asks.enter().append("div")
-				.attr("class", "offer input-group input-group-sm")
-				.attr("key", function(d) { return d; })
-				.on("click", Display.projectOffer)
-				.on("dblclick", Display.openOffer);
-
-			asks.append("span")
-				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return state.offers[d].price })
-				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
-				.classed("alert-danger", true);
-
-			asks.append("span")
-				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return -state.offers[d].qty })
-				.filter(function(d) { return state.offers[d].user_id == rs.user_id })
-				.classed("alert-danger", true);
-
-			data = rs.data.trade || [];
-			d3.select("#trades-container").selectAll(".trade").remove();
-			var trades = d3.select("#trades-container").selectAll(".trade").data(data);
-			trades.enter().append("div")
-				.attr("class", "trade input-group input-group-sm");
-
-			trades.append("span")
-				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return state.offers[d.key].price })
-				.filter(function(d) { return state.offers[d.key].user_id == rs.user_id })
-				.classed("alert-danger", true);
-
-			trades.append("span")
-				.attr("class", "input-group-addon no-input")
-				.text(function(d) { return d.qty })
-				.filter(function(d) { return state.offers[d.key].user_id == rs.user_id })
-				.classed("alert-danger", true);
-
-			$("#x-allocation").text(state.allocation.x.toFixed(2));
-			$("#y-allocation").text(state.allocation.y.toFixed(2));
-
-			data = Object.keys(state.offers)
-				.filter(function(d) {
-					return d === $("#accept").attr("key");
-				});
-			if(data.length > 0) {
-				Display.populateAcceptModal(data[0]);
-			}
+			$scope.trades = rs.data.trade || [];
 		},
 
 		isValidBid: function(price, qty) {
@@ -278,115 +188,115 @@
 				&& !isNaN(qty)
 				&& qty < 0;
 		},
-		
+
 		svgPrepare: function() {
 			var plotMargin = { top: 10, right: 10, bottom: 40, left: 40 };
 
-			state.svg = d3.select("#d3-plot");
+			$scope.svg = d3.select("#d3-plot");
 
-			state.plotWidth = $("#d3-plot").width() - plotMargin.left - plotMargin.right;
-			state.plotHeight = $("#d3-plot").height() - plotMargin.bottom - plotMargin.top;
+			$scope.plotWidth = $("#d3-plot").width() - plotMargin.left - plotMargin.right;
+			$scope.plotHeight = $("#d3-plot").height() - plotMargin.bottom - plotMargin.top;
 
-			state.plot = state.svg.append("g")
+			$scope.plot = $scope.svg.append("g")
 				.attr("transform", "translate(" + plotMargin.left + "," + plotMargin.top + ")");
 
-			state.scales = {};
+			$scope.scales = {};
 
-            state.scales.indexToX = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.xLimit]);
-            state.scales.indexToY = d3.scale.linear().domain([0, state.dotsPerLine - 1]).range([0, state.yLimit]);
-            state.scales.xToOffset = d3.scale.linear().domain([0, state.xLimit]).range([0, state.plotWidth]).clamp(true);
-			state.scales.yToOffset = d3.scale.linear().domain([0, state.yLimit]).range([state.plotHeight, 0]).clamp(true);
-            state.scales.xIndexToOffset = function(d) { return state.scales.xToOffset(state.scales.indexToX(d)); };
-            state.scales.yIndexToOffset = function(d) { return state.scales.yToOffset(state.scales.indexToY(d)); };
+			$scope.scales.indexToX = d3.scale.linear().domain([0, $scope.dotsPerLine - 1]).range([0, $scope.xLimit]);
+			$scope.scales.indexToY = d3.scale.linear().domain([0, $scope.dotsPerLine - 1]).range([0, $scope.yLimit]);
+			$scope.scales.xToOffset = d3.scale.linear().domain([0, $scope.xLimit]).range([0, $scope.plotWidth]).clamp(true);
+			$scope.scales.yToOffset = d3.scale.linear().domain([0, $scope.yLimit]).range([$scope.plotHeight, 0]).clamp(true);
+			$scope.scales.xIndexToOffset = function(d) { return $scope.scales.xToOffset($scope.scales.indexToX(d)); };
+			$scope.scales.yIndexToOffset = function(d) { return $scope.scales.yToOffset($scope.scales.indexToY(d)); };
 
-            state.scales.offsetToX = d3.scale.linear().domain([0, state.plotWidth]).range([0, state.xLimit]).clamp(true);
-            state.scales.offsetToY = d3.scale.linear().domain([state.plotHeight, 0]).range([0, state.yLimit]).clamp(true);
+			$scope.scales.offsetToX = d3.scale.linear().domain([0, $scope.plotWidth]).range([0, $scope.xLimit]).clamp(true);
+			$scope.scales.offsetToY = d3.scale.linear().domain([$scope.plotHeight, 0]).range([0, $scope.yLimit]).clamp(true);
 
-			state.xAxis = d3.svg.axis()
-				.scale(state.scales.xToOffset)
+			$scope.xAxis = d3.svg.axis()
+				.scale($scope.scales.xToOffset)
 				.outerTickSize(5);
-			state.plot.append("g")
-				.attr("transform", "translate(0," + (state.plotHeight) + ")")
+			$scope.plot.append("g")
+				.attr("transform", "translate(0," + ($scope.plotHeight) + ")")
 				.attr("class", "axis")
-				.call(state.xAxis);
+				.call($scope.xAxis);
 
-			state.yAxis = d3.svg.axis()
-				.scale(state.scales.yToOffset)
+			$scope.yAxis = d3.svg.axis()
+				.scale($scope.scales.yToOffset)
 				.orient("left")
 				.outerTickSize(5);
-			state.plot.append("g")
+			$scope.plot.append("g")
 				.attr("class", "axis")
-				.call(state.yAxis);
+				.call($scope.yAxis);
 
-			state.plot.append("text")
+			$scope.plot.append("text")
 				.attr("class", "axis label")
-				.attr("x", state.scales.xToOffset(state.xLimit / 2))
-				.attr("y", state.scales.yToOffset(0) + 35)
+				.attr("x", $scope.scales.xToOffset($scope.xLimit / 2))
+				.attr("y", $scope.scales.yToOffset(0) + 35)
 				.text("[ X ]");
 
-			state.plot.append("text")
+			$scope.plot.append("text")
 				.attr("class", "axis label")
 				.attr("transform", "rotate(-90)")
-				.attr("y", state.scales.xToOffset(0) - 30)
-				.attr("x", -state.scales.yToOffset(state.yLimit / 2))
+				.attr("y", $scope.scales.xToOffset(0) - 30)
+				.attr("x", -$scope.scales.yToOffset($scope.yLimit / 2))
 				.text("[ Y ]");
 
-			state.utilityGrid = d3.rw.functionGrid(state.utilityFunction, state.scales.indexToX, state.scales.indexToY);
-			
-			state.minUtility = d3.min(state.utilityGrid, function(col) {
+			$scope.utilityGrid = d3.rw.functionGrid($scope.utilityFunction, $scope.scales.indexToX, $scope.scales.indexToY);
+
+			$scope.minUtility = d3.min($scope.utilityGrid, function(col) {
 				return d3.min(col);
 			});
-			state.maxUtility = d3.max(state.utilityGrid, function(col) {
+			$scope.maxUtility = d3.max($scope.utilityGrid, function(col) {
 				return d3.max(col);
 			});
-			
+
 			var colorRange = ["#0000ff", "#0000ff", "#0000ff", "#00ffff", "#00ff00", "#ffff00", "#ff0000"];
-			var colorDomain = d3.rw.stretch([state.minUtility, state.maxUtility], colorRange.length);
-			state.scales.colorScale = d3.scale.linear().domain(colorDomain).range(colorRange);
+			var colorDomain = d3.rw.stretch([$scope.minUtility, $scope.maxUtility], colorRange.length);
+			$scope.scales.colorScale = d3.scale.linear().domain(colorDomain).range(colorRange);
 
 			Display.svgDrawHeatMap();
-			
-			state.indifferenceCurve = d3.rw.indifferenceCurve()
-                .grid(state.utilityGrid)
-                .xScale(state.scales.xIndexToOffset)
-                .yScale(state.scales.yIndexToOffset);
-            state.plot.append("g")
-				.attr("class", "selection-curve")
-				.call(state.indifferenceCurve);
 
-			state.hoverCurve = d3.rw.indifferenceCurve()
-				.grid(state.utilityGrid)
-				.xScale(state.scales.xIndexToOffset)
-				.yScale(state.scales.yIndexToOffset);
+			$scope.indifferenceCurve = d3.rw.indifferenceCurve()
+				.grid($scope.utilityGrid)
+				.xScale($scope.scales.xIndexToOffset)
+				.yScale($scope.scales.yIndexToOffset);
+			$scope.plot.append("g")
+				.attr("class", "selection-curve")
+				.call($scope.indifferenceCurve);
+
+			$scope.hoverCurve = d3.rw.indifferenceCurve()
+				.grid($scope.utilityGrid)
+				.xScale($scope.scales.xIndexToOffset)
+				.yScale($scope.scales.yIndexToOffset);
 
 			Display.svgDrawAllocation();
 
-            for(var i = 0; i < state.config.numCurves; i++) {
-                var value = state.utilityFunction((i + 1) * state.xLimit / (state.config.numCurves + 1), (i + 1) * state.yLimit / (state.config.numCurves + 1));
+			for(var i = 0; i < $scope.config.numCurves; i++) {
+				var value = $scope.utilityFunction((i + 1) * $scope.xLimit / ($scope.config.numCurves + 1), (i + 1) * $scope.yLimit / ($scope.config.numCurves + 1));
 
-                var curve = d3.rw.indifferenceCurve()
-                    .grid(state.utilityGrid)
-                    .xScale(state.scales.xIndexToOffset)
-                    .yScale(state.scales.yIndexToOffset)
-                    .value(value);
+				var curve = d3.rw.indifferenceCurve()
+					.grid($scope.utilityGrid)
+					.xScale($scope.scales.xIndexToOffset)
+					.yScale($scope.scales.yIndexToOffset)
+					.value(value);
 
-                state.plot.append("g")
+				$scope.plot.append("g")
 					.attr("class", "reference-curve")
 					.call(curve);
-            }
+			}
 
-            state.plot.on("mousemove", function() {
-                var position = d3.mouse(this);
-                Display.svgDrawHoverData(state.scales.offsetToX(position[0]), state.scales.offsetToY(position[1]));
-            });
+			$scope.plot.on("mousemove", function() {
+				var position = d3.mouse(this);
+				Display.svgDrawHoverData($scope.scales.offsetToX(position[0]), $scope.scales.offsetToY(position[1]));
+			});
 
-			state.plot.on("mouseleave", function() {
+			$scope.plot.on("mouseleave", function() {
 				Display.svgDrawHoverData(false);
 			});
 
-			state.plot.on("click", function() {
+			$scope.plot.on("click", function() {
 				var position = d3.mouse(this);
-				Display.autoFill(state.scales.offsetToX(position[0]), state.scales.offsetToY(position[1]));
+				Display.autoFill($scope.scales.offsetToX(position[0]), $scope.scales.offsetToY(position[1]));
 			});
 		},
 
@@ -397,36 +307,36 @@
 			$("#ask-qty").val(null);
 			$("#ask-price").val(null);
 
-			var qty = x - state.allocation.x,
-				price = ((state.allocation.y - y) / qty);
+			var qty = x - $scope.allocation.x,
+				price = (($scope.allocation.y - y) / qty);
 
-			if(qty > 0 && state.config.canBid) {
+			if(qty > 0 && $scope.config.canBid) {
 				if(Display.isValidBid(price, qty)) {
 					$("#bid-qty").val(qty);
 					$("#bid-price").val(price);
 				}
 			}
 
-			if(qty < 0 && state.config.canAsk) {
+			if(qty < 0 && $scope.config.canAsk) {
 				if(Display.isValidAsk(price, qty)) {
 					$("#ask-qty").val(-qty);
 					$("#ask-price").val(price);
 				}
 			}
 		},
-		
+
 		svgDrawHeatMap: function() {
-		    var heatMap = d3.rw.heatMap()
-                .grid(state.utilityGrid)
-                .xScale(state.scales.xIndexToOffset)
-                .yScale(state.scales.yIndexToOffset)
-                .colorScale(state.scales.colorScale);
-			state.plot.append("g").call(heatMap);
+			var heatMap = d3.rw.heatMap()
+				.grid($scope.utilityGrid)
+				.xScale($scope.scales.xIndexToOffset)
+				.yScale($scope.scales.yIndexToOffset)
+				.colorScale($scope.scales.colorScale);
+			$scope.plot.append("g").call(heatMap);
 		},
 
-        svgDrawHoverData: function(x, y) {
+		svgDrawHoverData: function(x, y) {
 
-			var hoverContainer = state.plot.selectAll(".hover-container").data(x === false ? [] : [0]);
+			var hoverContainer = $scope.plot.selectAll(".hover-container").data(x === false ? [] : [0]);
 			hoverContainer.enter()
 				.append("g")
 				.attr("class", "hover-container");
@@ -434,12 +344,12 @@
 				.remove();
 
 			if(x !== false) {
-				var xOffset = state.scales.xToOffset(x);
-				var xPercent = (x - state.scales.xToOffset.domain()[0]) / (state.scales.xToOffset.domain()[1] - state.scales.xToOffset.domain()[0]);
-				var yOffset = state.scales.yToOffset(y);
-				var yPercent = (y - state.scales.yToOffset.domain()[0]) / (state.scales.yToOffset.domain()[1] - state.scales.yToOffset.domain()[0]);
+				var xOffset = $scope.scales.xToOffset(x);
+				var xPercent = (x - $scope.scales.xToOffset.domain()[0]) / ($scope.scales.xToOffset.domain()[1] - $scope.scales.xToOffset.domain()[0]);
+				var yOffset = $scope.scales.yToOffset(y);
+				var yPercent = (y - $scope.scales.yToOffset.domain()[0]) / ($scope.scales.yToOffset.domain()[1] - $scope.scales.yToOffset.domain()[0]);
 
-				var utility = state.utilityFunction(x, y);
+				var utility = $scope.utilityFunction(x, y);
 
 				var hoverText = hoverContainer.selectAll(".hover-text").data([utility]);
 				hoverText.enter()
@@ -461,198 +371,234 @@
 					.attr("cx", function(d) { return d.x; })
 					.attr("cy", function(d) { return d.y; });
 
-				state.hoverCurveContainer = hoverContainer.selectAll(".hover-curve").data([0]);
-				state.hoverCurveContainer.enter()
+				$scope.hoverCurveContainer = hoverContainer.selectAll(".hover-curve").data([0]);
+				$scope.hoverCurveContainer.enter()
 					.append("g")
 					.attr("class", "hover-curve");
-				state.hoverCurveContainer.call(state.hoverCurve.value(utility));
+				$scope.hoverCurveContainer.call($scope.hoverCurve.value(utility));
 			}
-        },
+		},
 
-        svgDrawAllocation: function() {
-            var utility = state.utilityFunction(state.allocation.x, state.allocation.y);
+		svgDrawAllocation: function() {
+			var utility = $scope.utilityFunction($scope.allocation.x, $scope.allocation.y);
 
-            var allocationPoint = state.plot.selectAll(".allocation-point").data([state.allocation]);
-            allocationPoint.enter()
-                .append("circle")
-                .attr("class", "allocation-point")
-                .attr("r", 5)
-                .style("fill", "black");
-            allocationPoint
-                .attr("cx", function(d) { return state.scales.xToOffset(d.x); })
-                .attr("cy", function(d) { return state.scales.yToOffset(d.y); });
+			var allocationPoint = $scope.plot.selectAll(".allocation-point").data([$scope.allocation]);
+			allocationPoint.enter()
+				.append("circle")
+				.attr("class", "allocation-point")
+				.attr("r", 5)
+				.style("fill", "black");
+			allocationPoint
+				.attr("cx", function(d) { return $scope.scales.xToOffset(d.x); })
+				.attr("cy", function(d) { return $scope.scales.yToOffset(d.y); });
 
-            var allocationText = state.plot.selectAll(".allocation-text").data([state.allocation]);
-            allocationText.enter()
-                .append("text")
-                .attr("class", "allocation-text");
-            allocationText
-                .attr("x", function(d) { return state.scales.xToOffset(d.x) + 10; })
-                .attr("y", function(d) { return state.scales.yToOffset(d.y) - 10; })
-                .text("[" + utility.toFixed(2) + "]");
+			var allocationText = $scope.plot.selectAll(".allocation-text").data([$scope.allocation]);
+			allocationText.enter()
+				.append("text")
+				.attr("class", "allocation-text");
+			allocationText
+				.attr("x", function(d) { return $scope.scales.xToOffset(d.x) + 10; })
+				.attr("y", function(d) { return $scope.scales.yToOffset(d.y) - 10; })
+				.text("[" + utility.toFixed(2) + "]");
 
-            state.indifferenceCurve.value(utility);
+			$scope.indifferenceCurve.value(utility);
 
-        }
+		}
 	};
 
-	rs.create = function() {
+	rs.on_load(function() {
 
-		rs.on_load(function() {
+		processConfig();
 
-			processConfig();
+		$scope.utilityFunction = new Function(["x", "y"], "return " + $scope.config.utility + ";");
 
-            state.utilityFunction = new Function(["x", "y"], "return " + state.config.utility + ";");
-			
-			state.dotsPerLine = 100;
+		$scope.dotsPerLine = 100;
 
-			Display.initialize();
+		Display.initialize();
 
-			state.Ex = state.config.Ex;
-			state.Ey = state.config.Ey;
+		$scope.Ex = $scope.config.Ex;
+		$scope.Ey = $scope.config.Ey;
 
-			state.showDefault = state.config.enableDefault && state.config.showDefault;
+		$scope.showDefault = $scope.config.enableDefault && $scope.config.showDefault;
 
-			state.rounds = state.config.rounds || 1;
-			state.round = 0;
+		$scope.rounds = $scope.config.rounds || 1;
+		$scope.round = 0;
+		rs.trigger("next_round");
+
+	});
+
+	var checkTime = function() {
+		if(!$scope.roundStartTime) return;
+		var now = (new Date()).getTime() / 1000;
+		var timeRemaining = ($scope.roundStartTime + $scope.config.roundDuration) - now;
+		if (timeRemaining <= 0) {
+			timeRemaining = 0;
+			$scope.inputsEnabled = false;
+			$scope.roundStartTime = null;
 			rs.trigger("next_round");
-
-		});
-
-		var checkTime = function() {
-			var now = (new Date()).getTime() / 1000;
-			if (state.roundStartTime && (now - state.roundStartTime) > state.config.roundDuration) {
-				state.inputsEnabled = false;
-				state.roundStartTime = null;
-				rs.trigger("next_round");
-			} else {
-				state.timeChecker = setTimeout(checkTime, 1000);
-			}
-		};
-
-		rs.recv("next_round", function(sender, time) {
-			if(state.roundStartTime) {
-				state.inputsEnabled = false;
-				state.roundStartTime = null;
-				rs.trigger("next_round");
-			}
-		});
-
-
-		rs.on("next_round", function(time) {
-
-			state.inputsEnabled = false;
-
-			if(state.rounds && state.round >= state.rounds) {
-				rs.trigger("next_period");
-				return;
-			}
-
-			//Begin next round
-			state.round++;
-
-			rs.after_waiting_for_all(function() {
-				state.roundStartTime = (new Date()).getTime() / 1000;
-				//rs.schedule(checkTime);
-
-				state.allocation = {x: state.Ex, y: state.Ey};
-
-				state.xLimit = state.config.XLimit;
-				state.yLimit = state.config.YLimit;
-
-				state.offers = {};
-
-				Display.svgPrepare();
-				Display.updateTradePanels();
-
-				state.inputsEnabled = true;
-			});
-		});
-
-		rs.on("allocation", function(allocation) {
-			state.allocation = allocation;
-		});
-
-		rs.on("offer", function(offer) {
-			offer = $.extend(offer, {user_id: rs.user_id});
-			var key = getOfferKey(offer);
-			state.offers[key] = offer;
-		});
-
-		rs.recv("offer", function(user_id, offer) {
-			offer = $.extend(offer, {user_id: user_id});
-			var key = getOfferKey(offer);
-			state.offers[key] = offer;
-		});
-
-		rs.on("accept", function(accepted) {
-			if(Math.abs(state.offers[accepted.key].qty) >= Math.abs(accepted.qty)) {
-				state.allocation.y += state.offers[accepted.key].price * accepted.qty;
-				state.allocation.x -= accepted.qty;
-				state.offers[accepted.key].qty -= accepted.qty;
-				if(state.offers[accepted.key].qty == 0) {
-					state.offers[accepted.key].closed = true;
-				}
-				rs.trigger("trade", accepted);
-			} else {
-				alert("Transaction failed.");
-			}
-		});
-
-		rs.recv("accept", function(sender, accepted) {
-			if(Math.abs(state.offers[accepted.key].qty) >= Math.abs(accepted.qty)) {
-				if(accepted.user_id == rs.user_id) {
-					state.allocation.y -= state.offers[accepted.key].price * state.offers[accepted.key].qty;
-					state.allocation.x += state.offers[accepted.key].qty;
-				}
-				state.offers[accepted.key].qty -= accepted.qty;
-				if(state.offers[accepted.key].qty == 0) {
-					state.offers[accepted.key].closed = true;
-				}
-			}
-		});
-
-		rs.on("result", function(value) {
-			if(!state.results) {
-				state.results = [];
-			}
-			state.results.push(value);
-		});
-
-		rs.on("next_period", function() {
-			var finalResult = {x: state.allocation.x, y: state.allocation.y, utility: state.utilityFunction(state.allocation.x, state.allocation.y)};
-			finalResult.period = rs.period;
-			rs.set("results", finalResult);
-			rs.add_points(state.utilityFunction(state.allocation.x, state.allocation.y));
-			rs.next_period();
-		});
-
-		var processConfig = function() {
-			var userIndex = parseInt(rs.user_id) - 1;
-			state.config = {};
-
-			state.config.Ex = $.isArray(rs.config.Ex) ? rs.config.Ex[userIndex] : rs.config.Ex;
-			state.config.Ey = $.isArray(rs.config.Ey) ? rs.config.Ey[userIndex] : rs.config.Ey;
-			state.config.utility = $.isArray(rs.config.utility) ? rs.config.utility[userIndex] : rs.config.utility;
-			state.config.canBid = $.isArray(rs.config.canBid) ? rs.config.canBid[userIndex] : rs.config.canBid;
-			state.config.canAsk = $.isArray(rs.config.canAsk) ? rs.config.canAsk[userIndex] : rs.config.canAsk;
-			state.config.canBuy = $.isArray(rs.config.canBuy) ? rs.config.canBuy[userIndex] : rs.config.canBuy;
-			state.config.canSell = $.isArray(rs.config.canSell) ? rs.config.canSell[userIndex] : rs.config.canSell;
-
-			state.config.XLimit = $.isArray(rs.config.XLimit) ? rs.config.XLimit[userIndex] : rs.config.XLimit;
-			state.config.YLimit = $.isArray(rs.config.YLimit) ? rs.config.YLimit[userIndex] : rs.config.YLimit;
-			state.config.ProbX = $.isArray(rs.config.ProbX) ? rs.config.ProbX[userIndex] : rs.config.ProbX;
-			state.config.showHeatmap = $.isArray(rs.config.showHeatmap) ? rs.config.showHeatmap[userIndex] : rs.config.showHeatmap;
-            state.config.numCurves = $.isArray(rs.config.numCurves) ? rs.config.numCurves[userIndex] : rs.config.numCurves;
-
-			state.config.rounds =  rs.config.rounds;
-			state.config.roundDuration =  rs.config.roundDuration;
-
-			state.config.pause = rs.config.pause;
-		};
-
-		function getOfferKey(offer) {
-			return offer.user_id + "-" + offer.index;
+		} else {
+			$scope.timeChecker = setTimeout(checkTime, 1000);
 		}
 
+		var minutes = Math.floor(timeRemaining / 60).toString();
+		if(minutes.length < 2) {
+			minutes = "0" + minutes;
+		}
+		var seconds = Math.floor(timeRemaining - (minutes * 60)).toString();
+		if(seconds.length < 2) {
+			seconds = "0" + seconds;
+		}
+		$scope.time = minutes + ":" + seconds;
 	};
+
+	rs.recv("next_round", function(sender, time) {
+		if($scope.roundStartTime) {
+			$scope.inputsEnabled = false;
+			$scope.roundStartTime = null;
+			rs.trigger("next_round");
+		}
+	});
+
+
+	rs.on("next_round", function(time) {
+
+		$scope.inputsEnabled = false;
+
+		if($scope.rounds && $scope.round >= $scope.rounds) {
+			rs.trigger("next_period");
+			return;
+		}
+
+		//Begin next round
+		$scope.round++;
+
+		rs.after_waiting_for_all(function() {
+			$scope.roundStartTime = (new Date()).getTime() / 1000;
+			rs.trigger("roundStartTime", $scope.roundStartTime);
+			//rs.schedule(checkTime);
+
+			$scope.allocation = {x: $scope.Ex, y: $scope.Ey};
+
+			$scope.xLimit = $scope.config.XLimit;
+			$scope.yLimit = $scope.config.YLimit;
+
+			$scope.offers = {};
+
+			Display.svgPrepare();
+			Display.updateTradePanels();
+
+			$scope.inputsEnabled = true;
+		});
+	});
+
+	rs.on("roundStartTime", function(roundStartTime) {
+		$scope.roundStartTime = Math.min(roundStartTime, $scope.roundStartTime);
+	});
+	rs.recv("roundStartTime", function(sedner, roundStartTime) {
+		$scope.roundStartTime = Math.min(roundStartTime, $scope.roundStartTime);
+	});
+
+	rs.on("allocation", function(allocation) {
+		$scope.allocation = allocation;
+	});
+
+	rs.on("offer", function(offer) {
+		offer = $.extend(offer, {user_id: rs.user_id});
+		var key = getOfferKey(offer);
+		$scope.offers[key] = $.extend(offer, {key: key});
+	});
+
+	rs.recv("offer", function(user_id, offer) {
+		offer = $.extend(offer, {user_id: user_id});
+		var key = getOfferKey(offer);
+		$scope.offers[key] = $.extend(offer, {key: key});
+	});
+
+	rs.on("accept", function(accepted) {
+		var offer = $scope.offers[accepted.key];
+		if(Math.abs(offer.qty) >= Math.abs(accepted.qty)) {
+			$scope.allocation.y += offer.price * accepted.qty;
+			$scope.allocation.x -= accepted.qty;
+			offer.qty -= accepted.qty;
+			if(offer.qty == 0) {
+				offer.closed = true;
+			}
+			rs.trigger("trade", angular.extend(accepted, {price: offer.price}));
+		} else {
+			alert("Transaction failed.");
+		}
+	});
+
+	rs.recv("accept", function(sender, accepted) {
+		if(Math.abs($scope.offers[accepted.key].qty) >= Math.abs(accepted.qty)) {
+			if(accepted.user_id == rs.user_id) {
+				$scope.allocation.y -= $scope.offers[accepted.key].price * $scope.offers[accepted.key].qty;
+				$scope.allocation.x += $scope.offers[accepted.key].qty;
+			}
+			$scope.offers[accepted.key].qty -= accepted.qty;
+			if($scope.offers[accepted.key].qty == 0) {
+				$scope.offers[accepted.key].closed = true;
+			}
+		}
+	});
+
+	rs.on("result", function(value) {
+		if(!$scope.results) {
+			$scope.results = [];
+		}
+		$scope.results.push(value);
+	});
+
+	rs.on("next_period", function() {
+		var finalResult = {x: $scope.allocation.x, y: $scope.allocation.y, utility: $scope.utilityFunction($scope.allocation.x, $scope.allocation.y)};
+		finalResult.period = rs.period;
+		rs.set("results", finalResult);
+		rs.add_points($scope.utilityFunction($scope.allocation.x, $scope.allocation.y));
+		rs.next_period();
+	});
+
+	var processConfig = function() {
+		var userIndex = parseInt(rs.user_id) - 1;
+		$scope.config = {};
+
+		$scope.config.Ex = $.isArray(rs.config.Ex) ? rs.config.Ex[userIndex] : rs.config.Ex;
+		$scope.config.Ey = $.isArray(rs.config.Ey) ? rs.config.Ey[userIndex] : rs.config.Ey;
+		$scope.config.utility = $.isArray(rs.config.utility) ? rs.config.utility[userIndex] : rs.config.utility;
+		$scope.config.canBid = $.isArray(rs.config.canBid) ? rs.config.canBid[userIndex] : rs.config.canBid;
+		$scope.config.canAsk = $.isArray(rs.config.canAsk) ? rs.config.canAsk[userIndex] : rs.config.canAsk;
+		$scope.config.canBuy = $.isArray(rs.config.canBuy) ? rs.config.canBuy[userIndex] : rs.config.canBuy;
+		$scope.config.canSell = $.isArray(rs.config.canSell) ? rs.config.canSell[userIndex] : rs.config.canSell;
+
+		$scope.config.XLimit = $.isArray(rs.config.XLimit) ? rs.config.XLimit[userIndex] : rs.config.XLimit;
+		$scope.config.YLimit = $.isArray(rs.config.YLimit) ? rs.config.YLimit[userIndex] : rs.config.YLimit;
+		$scope.config.ProbX = $.isArray(rs.config.ProbX) ? rs.config.ProbX[userIndex] : rs.config.ProbX;
+		$scope.config.showHeatmap = $.isArray(rs.config.showHeatmap) ? rs.config.showHeatmap[userIndex] : rs.config.showHeatmap;
+		$scope.config.numCurves = $.isArray(rs.config.numCurves) ? rs.config.numCurves[userIndex] : rs.config.numCurves;
+
+		$scope.config.rounds =  rs.config.rounds;
+		$scope.config.roundDuration =  rs.config.roundDuration;
+
+		$scope.config.pause = rs.config.pause;
+	};
+
+	function getOfferKey(offer) {
+		return offer.user_id + "-" + offer.index;
+	}
+
+}]);
+
+Redwood.filter("offerType", function() {
+	return function(offer) {
+		if(angular.isUndefined(offer) || offer === null) {
+			return "";
+		}
+		return (offer.qty > 0 ? "Bid" : "Ask");
+	};
+});
+
+Redwood.filter("abs", function() {
+	return function(value) {
+		if(!value) return value;
+		return Math.abs(value);
+	};
+});
