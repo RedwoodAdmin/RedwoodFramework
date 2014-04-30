@@ -413,3 +413,9 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 	return rw;
 
 }]);
+
+Redwood.filter("toFixed", function() {
+	return function(value, decimalPlaces) {
+		return value.toFixed(decimalPlaces);
+	};
+});
