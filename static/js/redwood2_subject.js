@@ -9,6 +9,8 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 	rs.subject = {};
 	rs.points = 0;
 	rs.accumulated_points = 0;
+	$rootScope.points = 0;
+	$rootScope.totalPoints = 0;
 	rs.is_realtime = false;
 	rs._messaging_enabled = false;
 
@@ -378,6 +380,7 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 		rs.trigger("_synced", { period: rs.period });
 	};
 	rs.after_waiting_for = function(users, f) {
+		users.push(rs.user_id);
 		rs._waits.push({ users: users, f: f });
 		rs.trigger("_synced", { period: rs.period });
 	};
@@ -425,7 +428,6 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 				rs.subjects[i].accumulated_points += (rs.subjects[i].get("_accumulated_points") ? rs.subjects[i].get("_accumulated_points") : 0);
 			}
 			rs.accumulated_points = rs.subject[rs.user_id].accumulated_points;
-			$rootScope.periodPoints = rs.points;
 			$rootScope.totalPoints = rs.accumulated_points;
 
 			if(rs._pause[rs.period]) {
