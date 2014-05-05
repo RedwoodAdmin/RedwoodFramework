@@ -1,6 +1,51 @@
 
 
-Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($rootScope, $scope, rs) {
+Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout", "Subject", function($compile, $rootScope, $scope, $timeout, rs) {
+
+	$scope.bid = {};
+	$scope.ask = {};
+
+	$scope.onBidInputChange = function() {
+		if(!$scope.inputsEnabled || !$scope.config.canBid) return;
+		if(Display.isValidBid($scope.bid.price, $scope.bid.qty)) {
+			var y = $scope.allocation.y - ($scope.bid.price * $scope.bid.qty);
+			var x = $scope.allocation.x + $scope.bid.qty;
+			Display.svgDrawHoverData(x, y);
+		} else {
+			Display.svgDrawHoverData(false);
+		}
+	};
+
+	$scope.submitBid = function() {
+		if(!$scope.inputsEnabled || !$scope.config.canBid) return;
+		if(Display.isValidBid($scope.bid.price, $scope.bid.qty)) {
+			$scope.bidButtonLocked = true;
+			var index = rs.subject[rs.user_id].data.offer ? rs.subject[rs.user_id].data.offer.length : 0;
+			rs.trigger("offer", {index: index, price: $scope.bid.price, qty: $scope.bid.qty});
+			$scope.bid = {};
+		}
+	};
+
+	$scope.onAskInputChange = function() {
+		if(!$scope.inputsEnabled || !$scope.config.canAsk) return;
+		if(Display.isValidAsk($scope.ask.price, -$scope.ask.qty)) {
+			var y = $scope.allocation.y + ($scope.ask.price * $scope.ask.qty);
+			var x = $scope.allocation.x - $scope.ask.qty;
+			Display.svgDrawHoverData(x, y);
+		} else {
+			Display.svgDrawHoverData(false);
+		}
+	};
+
+	$scope.submitAsk = function() {
+		if(!$scope.inputsEnabled || !$scope.config.canAsk) return;
+		if(Display.isValidAsk($scope.ask.price, -$scope.ask.qty)) {
+			$scope.askButtonLocked = true;
+			var index = rs.subject[rs.user_id].data.offer ? rs.subject[rs.user_id].data.offer.length : 0;
+			rs.trigger("offer", {index: index, price: $scope.ask.price, qty: -$scope.ask.qty});
+			$scope.ask = {};
+		}
+	};
 
 	$scope.projectOffer = function(offer) {
 		if(!$scope.inputsEnabled) return;
@@ -40,140 +85,33 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 		}
 	};
 
+	var autoFill = function(position) {
+		var x = $scope.scales.offsetToX(position[0]);
+		var y = $scope.scales.offsetToY(position[1]);
+		var qty = x - $scope.allocation.x;
+		var price = (($scope.allocation.y - y) / qty);
+
+		$scope.ask = {};
+		$scope.bid = {};
+
+		if($scope.config.canBid && Display.isValidBid(price, qty)) {
+			$scope.bid = {price: price, qty: qty};
+
+		} else if($scope.config.canAsk && Display.isValidAsk(price, qty)) {
+			$scope.ask = {price: price, qty: qty};
+		}
+	};
+
 	$scope.svgHeight = function() {
 		return $("#d3-plot").width();
 	};
 
+	rs.on("trade", function() {
+		$scope.trades = rs.data.trade || [];
+	});
+
+
 	var Display = {
-
-		initialize: function() {
-
-			rs.on("accept", function(point) {
-				Display.updateTradePanels();
-				Display.svgDrawAllocation();
-			});
-
-			rs.recv("accept", function(sender, point) {
-				Display.updateTradePanels();
-				Display.svgDrawAllocation();
-			});
-
-			rs.on("trade", function(point) {
-				Display.updateTradePanels();
-			});
-
-			rs.recv("trade", function(point) {
-				Display.updateTradePanels();
-			});
-
-			$("#bid-price").change(function() {
-				Display.onBidInputChange();
-			});
-			$("#bid-qty").change(function() {
-				Display.onBidInputChange();
-			});
-
-			$("#ask-price").change(function() {
-				Display.onAskInputChange();
-			});
-			$("#ask-qty").change(function() {
-				Display.onAskInputChange();
-			});
-
-			$("#bid-button").click(function() {
-				if(!$scope.inputsEnabled || !$scope.config.canBid) return;
-				$("#bid-button").attr("disabled", "disabled");
-				var price = parseFloat($("#bid-price").val());
-				var qty = parseFloat($("#bid-qty").val());
-				if(Display.isValidBid(price, qty)) {
-					$("#bid-price").val("");
-					$("#bid-qty").val("");
-					var index = rs.subject[rs.user_id].data.offer ? rs.subject[rs.user_id].data.offer.length : 0;
-					rs.trigger("offer", {index: index, price: price, qty: qty});
-				} else {
-					$("#bid-button").removeAttr("disabled");
-				}
-			});
-
-			$("#ask-button").click(function() {
-				if(!$scope.inputsEnabled || !$scope.config.canAsk) return;
-				$("#ask-button").attr("disabled", "disabled");
-				var price = parseFloat($("#ask-price").val());
-				var qty = -parseFloat($("#ask-qty").val());
-				if(Display.isValidAsk(price, qty)) {
-					$("#ask-price").val("");
-					$("#ask-qty").val("");
-					var index = rs.subject[rs.user_id].data.offer ? rs.subject[rs.user_id].data.offer.length : 0;
-					rs.trigger("offer", {index: index, price: price, qty: qty});
-				} else {
-					$("#ask-button").removeAttr("disabled");
-				}
-			});
-
-			rs.on("offer", function() {
-				$("#bid-button").removeAttr("disabled");
-				$("#ask-button").removeAttr("disabled");
-				Display.updateTradePanels();
-			});
-
-			rs.recv("offer", function() {
-				Display.updateTradePanels();
-			});
-
-		},
-
-		onBidInputChange: function() {
-			if(!$scope.inputsEnabled || !$scope.config.canBid) return;
-			var price = parseFloat($("#bid-price").val());
-			var qty = parseFloat($("#bid-qty").val());
-			if(Display.isValidBid(price, qty)) {
-				var y = $scope.allocation.y - (price * qty);
-				var x = $scope.allocation.x + qty;
-				Display.svgDrawHoverData(x, y);
-			} else {
-				Display.svgDrawHoverData(false);
-			}
-		},
-
-		onAskInputChange: function() {
-			if(!$scope.inputsEnabled || !$scope.config.canAsk) return;
-			var price = parseFloat($("#ask-price").val());
-			var qty = -parseFloat($("#ask-qty").val());
-			if(Display.isValidAsk(price, qty)) {
-				var y = $scope.allocation.y - (price * qty);
-				var x = $scope.allocation.x + qty;
-				Display.svgDrawHoverData(x, y);
-			} else {
-				Display.svgDrawHoverData(false);
-			}
-		},
-
-		updateTradePanels: function() {
-			$scope.bids = Object.keys($scope.offers)
-				.filter(function(d) {
-					return $scope.offers[d].qty > 0 && !$scope.offers[d].closed;
-				})
-				.sort(function(a, b) {
-					return $scope.offers[a].price - $scope.offers[b].price;
-				})
-				.map(function(d) {
-					return $scope.offers[d];
-				});
-
-
-			$scope.asks = Object.keys($scope.offers)
-				.filter(function(d) {
-					return $scope.offers[d].qty < 0 && !$scope.offers[d].closed;
-				})
-				.sort(function(a, b) {
-					return $scope.offers[a].price - $scope.offers[b].price;
-				})
-				.map(function(d) {
-					return $scope.offers[d];
-				});
-
-			$scope.trades = rs.data.trade || [];
-		},
 
 		isValidBid: function(price, qty) {
 			return !isNaN(price)
@@ -199,6 +137,13 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 
 			$scope.plot = $scope.svg.append("g")
 				.attr("transform", "translate(" + plotMargin.left + "," + plotMargin.top + ")");
+
+			$scope.plot.on("click", function() {
+				var position = d3.mouse(this);
+				$scope.$apply(function() {
+					autoFill(position);
+				});
+			});
 
 			$scope.scales = {};
 
@@ -269,8 +214,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 				.xScale($scope.scales.xIndexToOffset)
 				.yScale($scope.scales.yIndexToOffset);
 
-			Display.svgDrawAllocation();
-
 			for(var i = 0; i < $scope.config.numCurves; i++) {
 				var value = $scope.utilityFunction((i + 1) * $scope.xLimit / ($scope.config.numCurves + 1), (i + 1) * $scope.yLimit / ($scope.config.numCurves + 1));
 
@@ -294,35 +237,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 				Display.svgDrawHoverData(false);
 			});
 
-			$scope.plot.on("click", function() {
-				var position = d3.mouse(this);
-				Display.autoFill($scope.scales.offsetToX(position[0]), $scope.scales.offsetToY(position[1]));
-			});
-		},
 
-		autoFill: function(x, y) {
-
-			$("#bid-qty").val(null);
-			$("#bid-price").val(null);
-			$("#ask-qty").val(null);
-			$("#ask-price").val(null);
-
-			var qty = x - $scope.allocation.x,
-				price = (($scope.allocation.y - y) / qty);
-
-			if(qty > 0 && $scope.config.canBid) {
-				if(Display.isValidBid(price, qty)) {
-					$("#bid-qty").val(qty);
-					$("#bid-price").val(price);
-				}
-			}
-
-			if(qty < 0 && $scope.config.canAsk) {
-				if(Display.isValidAsk(price, qty)) {
-					$("#ask-qty").val(-qty);
-					$("#ask-price").val(price);
-				}
-			}
 		},
 
 		svgDrawHeatMap: function() {
@@ -377,32 +292,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 					.attr("class", "hover-curve");
 				$scope.hoverCurveContainer.call($scope.hoverCurve.value(utility));
 			}
-		},
-
-		svgDrawAllocation: function() {
-			var utility = $scope.utilityFunction($scope.allocation.x, $scope.allocation.y);
-
-			var allocationPoint = $scope.plot.selectAll(".allocation-point").data([$scope.allocation]);
-			allocationPoint.enter()
-				.append("circle")
-				.attr("class", "allocation-point")
-				.attr("r", 5)
-				.style("fill", "black");
-			allocationPoint
-				.attr("cx", function(d) { return $scope.scales.xToOffset(d.x); })
-				.attr("cy", function(d) { return $scope.scales.yToOffset(d.y); });
-
-			var allocationText = $scope.plot.selectAll(".allocation-text").data([$scope.allocation]);
-			allocationText.enter()
-				.append("text")
-				.attr("class", "allocation-text");
-			allocationText
-				.attr("x", function(d) { return $scope.scales.xToOffset(d.x) + 10; })
-				.attr("y", function(d) { return $scope.scales.yToOffset(d.y) - 10; })
-				.text("[" + utility.toFixed(2) + "]");
-
-			$scope.indifferenceCurve.value(utility);
-
 		}
 	};
 
@@ -413,8 +302,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 		$scope.utilityFunction = new Function(["x", "y"], "return " + $scope.config.utility + ";");
 
 		$scope.dotsPerLine = 100;
-
-		Display.initialize();
 
 		$scope.Ex = $scope.config.Ex;
 		$scope.Ey = $scope.config.Ey;
@@ -430,25 +317,15 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 	var checkTime = function() {
 		if(!$scope.roundStartTime) return;
 		var now = (new Date()).getTime() / 1000;
-		var timeRemaining = ($scope.roundStartTime + $scope.config.roundDuration) - now;
-		if (timeRemaining <= 0) {
-			timeRemaining = 0;
+		$scope.timeRemaining = ($scope.roundStartTime + $scope.config.roundDuration) - now;
+		if ($scope.timeRemaining <= 0) {
+			$scope.timeRemaining = 0;
 			$scope.inputsEnabled = false;
 			$scope.roundStartTime = null;
 			rs.trigger("next_round");
 		} else {
-			$scope.timeChecker = setTimeout(checkTime, 1000);
+			$timeout(checkTime, 1000);
 		}
-
-		var minutes = Math.floor(timeRemaining / 60).toString();
-		if(minutes.length < 2) {
-			minutes = "0" + minutes;
-		}
-		var seconds = Math.floor(timeRemaining - (minutes * 60)).toString();
-		if(seconds.length < 2) {
-			seconds = "0" + seconds;
-		}
-		$scope.time = minutes + ":" + seconds;
 	};
 
 	rs.recv("next_round", function(sender, time) {
@@ -473,9 +350,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 		$scope.round++;
 
 		rs.after_waiting_for_all(function() {
-			$scope.roundStartTime = (new Date()).getTime() / 1000;
-			rs.trigger("roundStartTime", $scope.roundStartTime);
-			//rs.schedule(checkTime);
 
 			$scope.allocation = {x: $scope.Ex, y: $scope.Ey};
 
@@ -485,7 +359,12 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 			$scope.offers = {};
 
 			Display.svgPrepare();
-			Display.updateTradePanels();
+
+			$scope.roundStartTime = (new Date()).getTime() / 1000;
+			rs.trigger("roundStartTime", $scope.roundStartTime);
+			rs.schedule(function() {
+				//$timeout(checkTime);
+			});
 
 			$scope.inputsEnabled = true;
 		});
@@ -494,7 +373,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 	rs.on("roundStartTime", function(roundStartTime) {
 		$scope.roundStartTime = Math.min(roundStartTime, $scope.roundStartTime);
 	});
-	rs.recv("roundStartTime", function(sedner, roundStartTime) {
+	rs.recv("roundStartTime", function(sender, roundStartTime) {
 		$scope.roundStartTime = Math.min(roundStartTime, $scope.roundStartTime);
 	});
 
@@ -506,6 +385,9 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 		offer = $.extend(offer, {user_id: rs.user_id});
 		var key = getOfferKey(offer);
 		$scope.offers[key] = $.extend(offer, {key: key});
+
+		$scope.bidButtonLocked = false;
+		$scope.askButtonLocked = false;
 	});
 
 	rs.recv("offer", function(user_id, offer) {
@@ -585,20 +467,87 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "Subject", function($
 		return offer.user_id + "-" + offer.index;
 	}
 
+	$scope.$watch("offers", function(offers) {
+		if(!offers) return;
+		$scope.bids = Object.keys(offers)
+			.filter(function(d) {
+				return offers[d].qty > 0 && !offers[d].closed;
+			})
+			.sort(function(a, b) {
+				return offers[a].price - offers[b].price;
+			})
+			.map(function(d) {
+				return offers[d];
+			});
+
+
+		$scope.asks = Object.keys(offers)
+			.filter(function(d) {
+				return offers[d].qty < 0 && !offers[d].closed;
+			})
+			.sort(function(a, b) {
+				return offers[a].price - offers[b].price;
+			})
+			.map(function(d) {
+				return offers[d];
+			});
+	}, true /*Deep watch*/);
+
+	$scope.$watch("allocation", function(allocation) {
+		if(!allocation) return;
+		var utility = $scope.utilityFunction(allocation.x, allocation.y);
+
+		var allocationPoint = $scope.plot.selectAll(".allocation-point").data([allocation]);
+		allocationPoint.enter()
+			.append("circle")
+			.attr("class", "allocation-point")
+			.attr("r", 5)
+			.style("fill", "black");
+		allocationPoint
+			.attr("cx", function(d) { return $scope.scales.xToOffset(d.x); })
+			.attr("cy", function(d) { return $scope.scales.yToOffset(d.y); });
+
+		var allocationText = $scope.plot.selectAll(".allocation-text").data([allocation]);
+		allocationText.enter()
+			.append("text")
+			.attr("class", "allocation-text");
+		allocationText
+			.attr("x", function(d) { return $scope.scales.xToOffset(d.x) + 10; })
+			.attr("y", function(d) { return $scope.scales.yToOffset(d.y) - 10; })
+			.text("[" + utility.toFixed(2) + "]");
+
+		$scope.indifferenceCurve.value(utility);
+
+	}, true);
+
 }]);
 
-Redwood.filter("offerType", function() {
-	return function(offer) {
-		if(angular.isUndefined(offer) || offer === null) {
-			return "";
-		}
-		return (offer.qty > 0 ? "Bid" : "Ask");
-	};
-});
-
-Redwood.filter("abs", function() {
-	return function(value) {
-		if(!value) return value;
-		return Math.abs(value);
-	};
-});
+Redwood
+	.filter("offerType", function() {
+		return function(offer) {
+			if(angular.isUndefined(offer) || offer === null) {
+				return "";
+			}
+			return (offer.qty > 0 ? "Bid" : "Ask");
+		};
+	})
+	.filter("abs", function() {
+		return function(value) {
+			if(!value) return value;
+			return Math.abs(value);
+		};
+	})
+	.filter("timeString", function() {
+		return function(timeRemaining) {
+			timeRemaining = timeRemaining || 0;
+			var minutes = Math.floor(timeRemaining / 60).toString();
+			if(minutes.length < 2) {
+				minutes = "0" + minutes;
+			}
+			var seconds = Math.floor(timeRemaining - (minutes * 60)).toString();
+			if(seconds.length < 2) {
+				seconds = "0" + seconds;
+			}
+			return minutes + ":" + seconds;
+		};
+	});

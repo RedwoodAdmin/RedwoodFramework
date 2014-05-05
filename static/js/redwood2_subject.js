@@ -333,11 +333,11 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 		rs.subjects.sort(function(a,b) {
 			return parseInt(a.user_id) - parseInt(b.user_id);
 		});
-		rs.subjects.forEach(function() {
-			rs.subject[this.user_id] = this;
+		rs.subjects.forEach(function(subject) {
+			rs.subject[subject.user_id] = subject;
 		});
-		rs.other_subjects = rs.subjects.where(function() {
-			this.user_id !== rs.user_id;
+		rs.other_subjects = rs.subjects.filter(function(subject) {
+			subject.user_id !== rs.user_id;
 		})
 	});
 
@@ -359,7 +359,7 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 			|| rw.groups[msg.Sender] != rs._group
 			|| !rs.subject[msg.Sender]) return;
 		rs.subject[msg.Sender]._loaded = true;
-		var not_loaded = rs.subjects.firstWhere(function() {return !this._loaded;});
+		var not_loaded = rs.subjects.some(function(subject) {return !subject._loaded;});
 		if(!not_loaded) {
 			rs._enable_messaging();
 		}
@@ -373,8 +373,8 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 		rs._on_synced(sender);
 	});
 	rs.after_waiting_for_all = function(f) {
-		var subjects = rw.subjects.where(function() {
-			return rw.groups[this] == rs._group;
+		var subjects = rw.subjects.filter(function(id) {
+			return rw.groups[id] == rs._group;
 		});
 		rs._waits.push({ users: subjects, f: f });
 		rs.trigger("_synced", { period: rs.period });
@@ -386,16 +386,15 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 	};
 	rs._on_synced = function(user_id) {
 		if(rs._waits[0]) {
-			var subjects = rs.subjects.where(function() {
-				var _this = this;
-				return rs._waits[0].users.firstWhere(function() {return _this.user_id == this});
+			var subjects = rs.subjects.filter(function(subject) {
+				return rs._waits[0].users.indexOf(subject.user_id) > -1;
 			});
-			var syncCount = subjects[0].data._synced.where(function() {
-				return this.period == rs.period;
+			var syncCount = subjects[0].data._synced.filter(function(subject) {
+				return subject.period == rs.period;
 			}).length;
-			if(!subjects.firstWhere(function() {
-					return this.data._synced.where(function() {
-						return this.period == rs.period;
+			if(!subjects.some(function(subject) {
+					return subject.data._synced.filter(function(s) {
+						return s.period == rs.period;
 					}).length != syncCount;
 				})) {
 				var f = rs._waits.shift().f;

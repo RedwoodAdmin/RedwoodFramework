@@ -150,8 +150,8 @@ Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
 		ra.subjects.sort(function(a,b) {
 			return parseInt(a.user_id) - parseInt(b.user_id);
 		});
-		ra.subjects.forEach(function() {
-			ra.subject[this.user_id] = this;
+		ra.subjects.forEach(function(subject) {
+			ra.subject[subject.user_id] = subject;
 		});
 	});
 

@@ -1,106 +1,54 @@
-(function(){
-	var all = $.event.props,
-		len = all.length,
-		res = [];
-	while (len--) {
-		var el = all[len];
-		if (el != 'layerX' && el != 'layerY') res.push(el);
-	}
-	$.event.props = res;
-}());
-
-Object.size = function(obj) {
-	// returns the number of elements in the given object
-  var size = 0, key;
-  for (var key in obj) {
-    if (obj.hasOwnProperty(key)) size++;
-  }
-  return size;
-};
-
 // return the last element of the array
 Array.prototype.last = function() {
-	return this[this.length - 1];
+	return this.length ? this[this.length - 1] : undefined;
 };
 
 // return the sum of the array
 Array.prototype.sum = function() {
-  var total = 0;
-  for (var i = 0; i < this.length; i++) {
-  	total += this[i];
-  }
-  return total;
+	var total = 0;
+	this.forEach(function(value) {
+		total += value;
+	});
+	return total;
 };
 
-// return the mean of the array
 Array.prototype.max = function() {
-  return Math.max.apply(null, this)
+	return Math.max.apply(null, this)
 };
 
 Array.prototype.min = function() {
-  return Math.min.apply(null, this)
+	return Math.min.apply(null, this)
 };
 
 // return the mean of the array
 Array.prototype.mean = function() {
-  return this.sum() / this.length;
+	return this.length ? this.sum() / this.length : undefined;
 };
 
 // run a Fischer-Yates shuffle on a collection
 // e.g. [1, 2, 3, 4, 5].shuffle()
 Array.prototype.shuffle = function(rng) {
-	if (rng === undefined) {
+	var result = angular.copy(this);
+	if(rng === undefined) {
 		rng = Math;
 	}
-	var i, j, tmp;
-	for (i = 1; i < this.length; i++) {
-		j = Math.floor(rng.random()*(i+1));
-		if (j !== i) {
-			tmp = this[i];
-			this[i] = this[j];
-			this[j] = tmp;
+	var i, j;
+	for(i = 1; i < this.length; i++) {
+		j = Math.floor(rng.random() * (i + 1));
+		if(j !== i) {
+			result[i] = this[j];
+			result[j] = this[i];
 		}
 	}
-	return this;
+	return result;
 };
 
-Array.prototype.nativeForeach = Array.prototype.forEach;
-Array.prototype.forEach = function(f) {
-	this.nativeForeach(function(d, i, a) {
-		f.call(d, d, i, a);
+Object.size = function(object) {
+	var count = 0;
+	angular.forEach(object, function(prop) {
+		count++;
 	});
-}
-
-Array.prototype.where = function(f) {
-	var results = [];
-	for(var i = 0, l = this.length; i < l; i++) {
-		if(f.call(this[i])) {
-			results.push(this[i]);
-		}
-	}
-	return results;
-};
-
-Array.prototype.firstWhere = function(f) {
-	for(var i = 0, l = this.length; i < l; i++) {
-		if(f.call(this[i])) {
-			return this[i];
-		}
-	}
-};
-
-Array.prototype.contains = function(value) {
-	return $.inArray(value, this) >= 0 || this.firstWhere(function() {
-		return this == value;
-	});
-};
-
-Array.prototype.extract = function(f) {
-	var results = [];
-	for(var i = 0, l = this.length; i < l; i++) {
-		results.push(f.call(this[i]));
-	}
-	return results;
+	return count;
 };
 
 var getPoisson = function(lambda) {
@@ -111,24 +59,24 @@ var getPoisson = function(lambda) {
 	do {
 		k++;
 		p *= Math.random();
-	} while (p > L);
+	} while(p > L);
 
 	return k - 1;
-}
+};
 
 function require(script) {
-//this function checks to see if a required script was loaded or not
+	//this function checks to see if a required script was loaded or not
 	return $.ajax({
-	  url: script,
-	  dataType: "script",
+		url: script,
+		dataType: "script",
 		async: false,
-	  error: function () {
-	  	throw new Error("Could not load script " + script);
-	  }
+		error: function() {
+			throw new Error("Could not load script " + script);
+		}
 	});
 }
 
-function isNullOrUndefined(obj){
+function isNullOrUndefined(obj) {
 	return obj === null || obj === undefined;
 }
 
@@ -152,56 +100,56 @@ var error_modal = "\
 
 function tryParse(string) {
 	var result = string;
-	if (string.toLowerCase() === "true") {
+	if(string.toLowerCase() === "true") {
 		result = true;
-	} else if (string.toLowerCase() === "false") {
+	} else if(string.toLowerCase() === "false") {
 		result = false;
 	} else {
 		try {
 			var temp = JSON.parse(string);
 			result = (isNullOrUndefined(temp) ? result : temp);
-		} catch (SyntaxError) {
+		} catch(SyntaxError) {
 		}
 	}
 	return result;
 }
 
-(function($){
+(function($) {
 
 	$.fn.get_val = function() {
 		var v = this.val();
-		if (this.attr("type") === "number" || this.attr("type") === "range") {
+		if(this.attr("type") === "number" || this.attr("type") === "range") {
 			v = parseInt(v);
-			if (isNaN(v)) {
+			if(isNaN(v)) {
 				return undefined;
 			}
-			if (this.attr("min") !== undefined && v < parseInt(this.attr("min"))) {
+			if(this.attr("min") !== undefined && v < parseInt(this.attr("min"))) {
 				return undefined;
 			}
-			if (this.attr("max") !== undefined && v > parseInt(this.attr("max"))) {
+			if(this.attr("max") !== undefined && v > parseInt(this.attr("max"))) {
 				return undefined;
 			}
-			if (this.attr("step") !== undefined && v % parseInt(this.attr("step")) !== 0) {
+			if(this.attr("step") !== undefined && v % parseInt(this.attr("step")) !== 0) {
 				return undefined;
 			}
 		}
 		return v;
 	};
-})( jQuery );
+})(jQuery);
 
 $("[data-input]").each(function() {
 	var widget = $(this);
-	if (widget.closest("[data-form]").length === 0) {
+	if(widget.closest("[data-form]").length === 0) {
 		widget.change(function() {
 			var v = widget.get_val();
-			if (v !== undefined) {
+			if(v !== undefined) {
 				rw.send(widget.data("var"), v);
 			} else {
 				widget.addClass("error");
 			}
 		});
 		rw.recv(widget.data("var"), function(msg) {
-			if (widget.data("self") === false || msg.Sender === rw.user_id) {
+			if(widget.data("self") === false || msg.Sender === rw.user_id) {
 				widget.val(msg.Value);
 			}
 		});
@@ -215,20 +163,20 @@ $("[data-form]").each(function() {
 		form.find("[data-input]").each(function() {
 			var widget = $(this);
 			var v = widget.get_val();
-			if (v !== undefined) {
+			if(v !== undefined) {
 				msg[widget.data("var")] = v;
 				widget.removeClass("error");
 			} else {
 				widget.addClass("error");
 			}
 		});
-		if (!form.find("[data-input]").hasClass("error")) {
+		if(!form.find("[data-input]").hasClass("error")) {
 			rw.send(form.data("var"), msg);
 		}
 		return false;
 	});
 	rw.recv(form.data("var"), function(msg) {
-		if (form.data("self") === false || msg.Sender === rw.user_id) {
+		if(form.data("self") === false || msg.Sender === rw.user_id) {
 			form.find("[data-input]").each(function() {
 				var widget = $(this);
 				widget.val(msg.Value[widget.data("var")]);
@@ -244,23 +192,23 @@ $("span[data-output]").each(function() {
 	var keys = widget.data("var").split(".");
 	var watch_key = keys[0];
 	var fn = widget.data("fn");
-	if (fn !== undefined) {
+	if(fn !== undefined) {
 		eval("fn = function(" + widget.data("var") + ") { return " + fn + "; }");
 	}
 	var fmt = widget.data("fmt");
-	if (fmt !== undefined) {
+	if(fmt !== undefined) {
 		eval("fmt = function(v) { return " + fmt + "; }");
 	}
 	rw.recv(watch_key, function(msg) {
-		if (widget.data("self") === false || msg.Sender === rw.user_id) {
+		if(widget.data("self") === false || msg.Sender === rw.user_id) {
 			var v = msg.Value;
-			if (fn !== undefined) {
+			if(fn !== undefined) {
 				v = fn(v);
 			}
-			for (var i = 1; i < keys.length; i++) {
+			for(var i = 1; i < keys.length; i++) {
 				v = v[keys[i]];
 			}
-			if (fmt !== undefined) {
+			if(fmt !== undefined) {
 				v = fmt(v);
 			}
 			widget.text(v);
@@ -279,15 +227,15 @@ $("[data-history]").each(function() {
 	};
 	var xrange = widget.data("xrange");
 	rw.recv(widget.data("var"), function(msg) {
-		if (widget.data("self") === false || msg.Sender === rw.user_id) {
+		if(widget.data("self") === false || msg.Sender === rw.user_id) {
 			history.push([history.length, msg.Value]);
-			if (xrange !== undefined) {
-				if (history.length - history[0][0] >= xrange) {
+			if(xrange !== undefined) {
+				if(history.length - history[0][0] >= xrange) {
 					opts.xaxis.min = history.length - xrange - 1;
 					opts.xaxis.max = history.length - 1;
 				}
 			}
-			if (!rw.__sync__.in_progress) {
+			if(!rw.__sync__.in_progress) {
 				$.plot(widget, [history], opts);
 			}
 		}
@@ -301,13 +249,13 @@ $("[data-next-period]").each(function() {
 	var widget = $(this);
 	widget.attr("disabled", "disabled");
 	rw.recv("period", function(msg) {
-		if (widget.data("self") === false || msg.Sender === rw.user_id) {
-			if(widget.data("auto") !== undefined){
-				setTimeout(function(){
+		if(widget.data("self") === false || msg.Sender === rw.user_id) {
+			if(widget.data("auto") !== undefined) {
+				setTimeout(function() {
 					widget.prop("disabled", false);
 					widget.click();
 				}, parseInt(widget.data("auto")) * 1000);
-			} else{
+			} else {
 				widget.attr("disabled", null);
 			}
 		}
@@ -317,10 +265,10 @@ $("[data-next-period]").each(function() {
 		rw.send("data_next_period_clicked");
 		return false;
 	});
-	rw.recv("data_next_period_clicked", function(msg){
-		if(msg.Sender === rw.user_id){
+	rw.recv("data_next_period_clicked", function(msg) {
+		if(msg.Sender === rw.user_id) {
 			widget.attr("disabled", "disabled");
-			rw.on_group_synced(function(){
+			rw.on_group_synced(function() {
 				rw.set_period(rw.period + 1);
 			});
 		}
@@ -329,18 +277,18 @@ $("[data-next-period]").each(function() {
 
 $("[data-load-config]").each(function() {
 	$(this).
-	attr("accept", "text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").
-	change(function(event) {
-		if (event.target.files.length === 1) {
-			var filename = event.target.files[0];
-			var reader = new FileReader();
-			reader.onload = (function(f) {
-				return function(e) {
-					rw.set_config(e.target.result);
-				};
-			})(filename);
-			reader.readAsText(filename);
-		}
-		return false;
-	});
+		attr("accept", "text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").
+		change(function(event) {
+			if(event.target.files.length === 1) {
+				var filename = event.target.files[0];
+				var reader = new FileReader();
+				reader.onload = (function(f) {
+					return function(e) {
+						rw.set_config(e.target.result);
+					};
+				})(filename);
+				reader.readAsText(filename);
+			}
+			return false;
+		});
 });
