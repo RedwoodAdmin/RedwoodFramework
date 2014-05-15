@@ -221,8 +221,8 @@ Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
 	ra.recv("__paused__", function(user, value) {
 		ra.subject[user].paused = true;
 		ra._call_all(ra.on_subject_paused_callbacks, user);
-		if(!ra.subjects.firstWhere(function() {
-			return !this.paused;
+		if(!ra.subjects.some(function(subject) {
+			return !subject.paused;
 		})) {
 			ra._call_all(ra.on_all_paused_callbacks);
 		}

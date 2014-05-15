@@ -192,7 +192,7 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 			$scope.roundStartTime = (new Date()).getTime() / 1000;
 			rs.trigger("roundStartTime", $scope.roundStartTime);
 			rs.schedule(function() {
-				//$timeout(checkTime);
+				$timeout(checkTime);
 			});
 
 			$scope.inputsEnabled = true;
