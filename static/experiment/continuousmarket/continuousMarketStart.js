@@ -96,11 +96,14 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 			$scope.bid = {price: price, qty: qty};
 
 		} else if($scope.config.canAsk && isValidAsk(price, qty)) {
-			$scope.ask = {price: price, qty: qty};
+			$scope.ask = {price: price, qty: -qty};
 		}
 	});
 
 	rs.on("trade", function() {
+		$scope.trades = rs.data.trade || [];
+	});
+	rs.recv("trade", function() {
 		$scope.trades = rs.data.trade || [];
 	});
 
@@ -336,7 +339,8 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 			var utilityGrid,
 				scales = {},
 				referenceValues,
-				mouseDown;
+				mouseDown,
+				dragging = false;
 
 			var xMin, xMax, yMin, yMax;
 
@@ -355,7 +359,9 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 			var plotWidth = svgWidth - plotMargin.left - plotMargin.right;
 			var plotHeight = svgHeight - plotMargin.bottom - plotMargin.top;
 
-			var heatMapContainer = plot.append("g");
+			var baseLayer = plot.append("g");
+
+			var heatMapContainer = baseLayer.append("g");
 
 			var xAxisContainer = plot.append("g")
 				.attr("transform", "translate(0," + (plotHeight) + ")")
@@ -382,7 +388,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				.attr("x", -((plotHeight / 2) + plotMargin.top))
 				.text("[ Y ]");
 
-			var allocationContainer = plot.append("g")
+			var allocationContainer = baseLayer.append("g")
 				.attr("class", "allocation-container");
 			var allocationText = allocationContainer.append("text")
 				.attr("class", "allocation-text");
@@ -391,7 +397,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				.attr("r", 5);
 			var allocationCurve = d3.rw.indifferenceCurve();
 
-			var hoverContainer = plot.append("g")
+			var hoverContainer = baseLayer.append("g")
 				.attr("class", "hover-container");
 			var hoverText = hoverContainer.append("text")
 				.attr("class", "hover-text");
@@ -416,6 +422,10 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 			plot.on("mouseup", function() {
 				$scope.$apply(function() {
 					mouseDown = false;
+					if(dragging) {
+						dragging = false;
+						onMove();
+					}
 				});
 			});
 
@@ -428,6 +438,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 					console.log("x: " + values.x + ", y: " + values.y);
 
 					if(mouseDown) {
+						dragging = true;
 						from = angular.copy(mouseDown);
 						to = angular.copy(values);
 						onDrag();
@@ -440,6 +451,11 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 			plot.on("mouseleave", function() {
 				$scope.$apply(function() {
 					mouseDown = false;
+					if(dragging) {
+						dragging = false;
+						to = from;
+						onDrag();
+					}
 					$scope.hover = false;
 				});
 			});
@@ -474,7 +490,16 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				scales.offsetToY = d3.scale.linear().domain([plotHeight, 0]).range([yMin, yMax]).clamp(true);
 			}
 
-			var onDrag = AsyncCallManager.mergeOverlappingCallsTo(function() {
+			function onDrag() {
+				/*
+				var xDiff = scales.xToOffset(to.x) - scales.xToOffset(from.x);
+				var yDiff = scales.yToOffset(to.y) - scales.yToOffset(from.y);
+				baseLayer.attr("transform", "translate(" + xDiff + "," + yDiff + ")");
+				*/
+				onMove();
+			}
+
+			var onMove = AsyncCallManager.mergeOverlappingCallsTo(function() {
 
 				return $timeout(function() {
 					var xDiff = to.x - from.x;
@@ -497,6 +522,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 
 					generateScales();
 
+					baseLayer.attr("transform", "translate(" + "0" + "," + "0" + ")");
 					redrawAll($scope.config);
 				}, 200);
 			});
@@ -584,7 +610,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 					.colorScale(scales.colorScale);
 				heatMapContainer.call(heatMap);
 
-				var referenceCurves = plot.selectAll(".reference-curve").data(referenceValues);
+				var referenceCurves = baseLayer.selectAll(".reference-curve").data(referenceValues);
 				referenceCurves.enter()
 					.append("g")
 					.attr("class", "reference-curve");

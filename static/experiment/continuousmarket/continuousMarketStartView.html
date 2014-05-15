@@ -39,11 +39,11 @@
 													 ng-dblclick="openOffer(bid)">
 													<span class="input-group-addon no-input"
 														  ng-class="{'alert-danger': bid.user_id == $root.user_id}">
-														{{bid.price}}
+														{{bid.price | number : 2}}
 													</span>
 													<span class="input-group-addon no-input"
 														  ng-class="{'alert-danger': bid.user_id == $root.user_id}">
-														{{bid.qty}}
+														{{bid.qty | number : 2}}
 													</span>
 												</div>
 											</div>
@@ -78,11 +78,11 @@
 													 class="input-group input-group-sm">
 													<span class="input-group-addon no-input"
 														  ng-class="{'alert-danger': trade.user_id == $root.user_id}">
-														{{trade.price}}
+														{{trade.price | number : 2}}
 													</span>
 													<span class="input-group-addon no-input"
 														  ng-class="{'alert-danger': trade.user_id == $root.user_id}">
-														{{trade.qty}}
+														{{trade.qty | number : 2}}
 													</span>
 												</div>
 											</div>
@@ -119,11 +119,11 @@
 													 ng-dblclick="openOffer(ask)">
 													<span class="input-group-addon no-input"
 														  ng-class="{'alert-danger': ask.user_id == $root.user_id}">
-														{{ask.price}}
+														{{ask.price | number : 2}}
 													</span>
 													<span class="input-group-addon no-input"
 														  ng-class="{'alert-danger': ask.user_id == $root.user_id}">
-														{{-ask.qty}}
+														{{-ask.qty | number : 2}}
 													</span>
 												</div>
 											</div>
@@ -169,8 +169,8 @@
 				</div>
 				<div id="modalBody" class="modal-body">
 					<div class="input-group input-group-sm">
-						<span class="input-group-addon no-input">Price: <span>{{selectedOffer.price | abs}}</span></span>
-						<span class="input-group-addon">Qty: <span>{{selectedOffer.qty | abs}}</span></span>
+						<span class="input-group-addon no-input">Price: <span>{{selectedOffer.price | abs | number : 2}}</span></span>
+						<span class="input-group-addon">Qty: <span>{{selectedOffer.qty | abs | number : 2}}</span></span>
 					</div>
 					<div class="input-group input-group-sm">
 						<span class="input-group-addon">Accept</span>
