@@ -1,5 +1,5 @@
 
-Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
+Redwood.factory("Admin", ["$rootScope", "RedwoodCore", function($rootScope, rw) {
 
 	var ra = {};
 
@@ -83,7 +83,7 @@ Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
 				ra._event_handlers[eventName][i](value);
 			}
 		}
-	}
+	};
 
 	ra._handle_msg = function(msg) {
 		if(ra._msg_handlers[msg.Key]) {
@@ -110,7 +110,7 @@ Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
 		rw.recv_self("__set_config__", function(msg) {
 			f(msg.Value);
 		});
-	}
+	};
 	ra.on_set_config(function(configs) {
 		ra.configs = rw.configs;
 	});
@@ -119,7 +119,7 @@ Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
 		ra.recv("__register__", function(userId) {
 			f(userId);
 		});
-	}
+	};
 	ra.on_register(function(userId) {
 		ra.subjects.push({
 			user_id: userId,
@@ -141,10 +141,10 @@ Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
 			},
 			data: {},
 			get: function(key) {
-				return (isNullOrUndefined(this.data[key]) ? undefined : this.data[key].last());
+				return (angular.isNullOrUndefined(this.data[key]) ? undefined : this.data[key].last());
 			},
 			getPrevious: function(key) {
-				return (isNullOrUndefined(this.data[key]) ? undefined
+				return (angular.isNullOrUndefined(this.data[key]) ? undefined
 					: (this.data[key].length > 1 ? this.data[key][this.data[key].length - 2] : undefined));
 			}});
 		ra.subjects.sort(function(a,b) {
@@ -183,7 +183,7 @@ Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
 		ra.recv("__set_period__", function(sender, value) {
 			for(var i = 0, l = rw.configs.length; i < l; i++) {
 				var config = rw.configs[i];
-				if (config.period === value.period || (isNullOrUndefined(config.period) && i === value.period - 1)) {
+				if (config.period === value.period || (angular.isNullOrUndefined(config.period) && i === value.period - 1)) {
 					f(sender, value.period);
 				}
 			}
@@ -247,24 +247,32 @@ Redwood.factory("Admin", ["$rootScope", "Redwood", function($rootScope, rw) {
 		$.post("admin/archive");
 	};
 
-	$("[data-load-config]").each(function() {
-		var widget = $(this);
-		widget.attr("accept", "text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-		widget.change(function(event) {
-			if (event.target.files.length === 1) {
-				var filename = event.target.files[0];
-				var reader = new FileReader();
-				reader.onload = (function(f) {
-					return function(e) {
-						rw.set_config(e.target.result);
-					};
-				})(filename);
-				reader.readAsText(filename);
-			}
-			return false;
-		});
-	});
-
 	return ra;
 
+}]);
+
+Redwood.directive("loadConfig", ['$timeout', 'RedwoodCore', function($timeout, rw) {
+	return {
+		restrict: 'E',
+		replace: true,
+		template: '<input type="file"/>',
+		link: function($scope, element, attrs) {
+
+			element.attr("accept", "text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+			element.on('change', function(event) {
+				if(event.target.files.length === 1) {
+					var filename = event.target.files[0];
+					var reader = new FileReader();
+					reader.onload = (function(f) {
+						return function(e) {
+							rw.set_config(e.target.result);
+						};
+					})(filename);
+					reader.readAsText(filename);
+				}
+				return false;
+			});
+		}
+	}
 }]);

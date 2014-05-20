@@ -1,9 +1,16 @@
 
 var LOG_MESSAGES = true;
 
-var Redwood = angular.module("Redwood", []);
+var Redwood = angular.module("Redwood", [], function() {
+	$("body")//.attr("ng-controller", "CoreCtrl")
+		.append(angular.element("<error-modal>"));
+});
 
-Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
+Redwood.controller("CoreCtrl", ["$compile", "$rootScope", "$scope", "$timeout", "RedwoodCore", function($compile, $rootScope, $scope, $timeout, rw) {
+
+}]);
+
+Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeout", "Helpers", function($compile, $controller, $rootScope, $timeout, Helpers) {
 
 	var rw = {};
 
@@ -26,7 +33,7 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 		__page_loaded__: "__page_loaded__",
 
 		__set_points__: "__set_points__",
-		__get_period__: "__get_period__",
+		__get_period__: "__get_period__"
 	};
 
 	var components = window.location.pathname.split("/");
@@ -44,11 +51,11 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 	}
 	$rootScope.user_id = rw.user_id;
 
-	require(rw.__instance__ + '/static/js/random.js');
-	require(rw.__instance__ + '/static/js/bootstrap.js');
-	require(rw.__instance__ + '/static/js/bootstrap-modal.js');
-	require(rw.__instance__ + '/static/js/domparser.js');
-	require(rw.__instance__ + '/static/js/jquery.csv-0.7.min.js');
+	Helpers.require(rw.__instance__ + '/static/js/random.js');
+	Helpers.require(rw.__instance__ + '/static/js/bootstrap.js');
+	Helpers.require(rw.__instance__ + '/static/js/bootstrap-modal.js');
+	Helpers.require(rw.__instance__ + '/static/js/domparser.js');
+	Helpers.require(rw.__instance__ + '/static/js/jquery.csv-0.7.min.js');
 
 	rw.__listeners__ = {};
 
@@ -79,8 +86,6 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 				Key: rw.KEY.__router_status__,
 				Value: {connected: true}
 			});
-
-			$("#redwood-error").modal("hide");
 		};
 
 		rw.__ws__.onerror = function(e) {
@@ -89,13 +94,9 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 				Key: rw.KEY.__router_status__,
 				Value: {connected: false, details: e}
 			});
-		}; // throw an error if a connection to the router can't be established
+		};
 
 		rw.__ws__.onclose = function(e) {
-			$("body").append(error_modal);
-			if ($("#redwood-error").css("display") === "none") {
-				$("#redwood-error").modal();
-			}
 			rw.send = rw.__error_send__;
 			rw.__broadcast__({
 				Key: rw.KEY.__router_status__,
@@ -105,52 +106,56 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 		};
 
 		rw.__ws__.onmessage = function(ws_msg) {
-			if(rw.__pending_reload__)
-				return;
-			var msg = JSON.parse(ws_msg.data);
-			if(typeof LOG_MESSAGES !== 'undefined' && LOG_MESSAGES) {
-				console.log(msg.Period
-					+ ", " + msg.Group
-					+ ", " + msg.Sender
-					+ ", " + msg.Key
-					+ ", " + msg.Value);
-			}
-			if(msg.Key === rw.KEY.__queue_start__) {
-				rw.__nonce__ = msg.Nonce;
-				rw.__sync__.in_progress = true;
-				rw.__sync__.send = rw.send;
-				rw.send = rw.__sync_send__;
-				rw.__send_queue__ = [];
-			} else if(msg.Key === rw.KEY.__queue_end__) {
-				rw.__sync__.in_progress = false;
-				rw.send = rw.__sync__.send;
-				if(!rw.__is_reload__){
-					rw.send(rw.KEY.__page_loaded__);
-				}
-				for(var i = 0, l = (rw.__send_queue__.length); i < l; i++) {
-					//rw.send(rw.__send_queue__[i].key, rw.__send_queue__[i].value, rw.__send_queue__[i].args);
-				}
-			}
-			if(rw.__sync__.in_progress && rw.__send_queue__.length > 0) {
-				var queuedMsg = rw.convertToMessage(rw.__send_queue__[0].key, rw.__send_queue__[0].value, rw.__send_queue__[0].args);
-				if(msg.Key === queuedMsg.Key && msg.Sender === queuedMsg.Sender) {
-					rw.__send_queue__.shift();
-				}
-			}
+			$rootScope.$apply(function() {
 
-			rw.__handle_msg__(msg);
-			if (msg.Key === rw.KEY.__queue_end__) {
-				rw.__is_reload__ = false;
-			}
+				if(rw.__pending_reload__)
+					return;
+				var msg = JSON.parse(ws_msg.data);
+				if(typeof LOG_MESSAGES !== 'undefined' && LOG_MESSAGES) {
+					console.log(msg.Period
+						+ ", " + msg.Group
+						+ ", " + msg.Sender
+						+ ", " + msg.Key
+						+ ", " + msg.Value);
+				}
+				if(msg.Key === rw.KEY.__queue_start__) {
+					rw.__nonce__ = msg.Nonce;
+					rw.__sync__.in_progress = true;
+					rw.__sync__.send = rw.send;
+					rw.send = rw.__sync_send__;
+					rw.__send_queue__ = [];
+				} else if(msg.Key === rw.KEY.__queue_end__) {
+					rw.__sync__.in_progress = false;
+					rw.send = rw.__sync__.send;
+					if(!rw.__is_reload__){
+						rw.send(rw.KEY.__page_loaded__);
+					}
+					for(var i = 0, l = (rw.__send_queue__.length); i < l; i++) {
+						//rw.send(rw.__send_queue__[i].key, rw.__send_queue__[i].value, rw.__send_queue__[i].args);
+					}
+				}
+				if(rw.__sync__.in_progress && rw.__send_queue__.length > 0) {
+					var queuedMsg = rw.convertToMessage(rw.__send_queue__[0].key, rw.__send_queue__[0].value, rw.__send_queue__[0].args);
+					if(msg.Key === queuedMsg.Key && msg.Sender === queuedMsg.Sender) {
+						rw.__send_queue__.shift();
+					}
+				}
+
+				rw.__handle_msg__(msg);
+				if (msg.Key === rw.KEY.__queue_end__) {
+					rw.__is_reload__ = false;
+				}
+
+			});
 		};
 	};
 
 	rw.__retry_connect__ = function(t) {
-		$("#connection-retry").text(t);
+		$rootScope.connectionRetry = t;
 		if (t === 0) {
 			rw.__connect__();
 		} else {
-			setTimeout(function() {
+			$timeout(function() {
 				rw.__retry_connect__(t - 1);
 			}, 1000);
 		}
@@ -257,7 +262,7 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 
 	rw.on_load = function(f) {
 		rw.recv_self(rw.KEY.__page_loaded__, function(msg) {
-			if(msg.Period === rw.period || (rw.user_id == "admin" && isNullOrUndefined(rw.period))) {
+			if(msg.Period === rw.period || (rw.user_id == "admin" && angular.isNullOrUndefined(rw.period))) {
 				f();
 			}
 		});
@@ -265,7 +270,7 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 
 	rw.__is_reload__ = false;
 	rw.recv_self(rw.KEY.__page_loaded__, function(msg) {
-		if(msg.Period === rw.period || isNullOrUndefined(rw.period)) {
+		if(msg.Period === rw.period || angular.isNullOrUndefined(rw.period)) {
 			if(rw.__sync__.in_progress){
 				rw.__is_reload__ = true;
 			}
@@ -365,7 +370,7 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 				for (var row = 0; row < rw.configs.length; row++) {
 					for (var col in rw.configs[row]) {
 						if (typeof(rw.configs[row][col]) === "string") {
-							rw.configs[row][col] = tryParse(rw.configs[row][col]);
+							rw.configs[row][col] = Helpers.tryParse(rw.configs[row][col]);
 						}
 					}
 				}
@@ -414,8 +419,37 @@ Redwood.factory("Redwood", ["$rootScope", function($rootScope) {
 
 }]);
 
-Redwood.filter("toFixed", function() {
-	return function(value, decimalPlaces) {
-		return value.toFixed(decimalPlaces);
+Redwood.directive("errorModal", ['RedwoodCore', function(rw) {
+	return {
+		restrict: 'E',
+		replace: true,
+		template: "\
+			<div id='error-modal' class='modal fade'>\
+				<div class='modal-dialog modal-md'>\
+					<div class='modal-content'>\
+						<div class='modal-header'>\
+							<h3>Problem Connecting to Redwood</h3>\
+						</div>\
+						<div class='modal-body'>\
+							<p>\
+								Unable to connect to the redwood message router. Either the router\
+								is down, or a firewall is preventing the connection.\
+							</p>\
+						</div>\
+						<div class='modal-footer'>\
+							<p>Retrying connection in <span>{{$root.connectionRetry}}</span></p>\
+						</div>\
+					</div>\
+				</div>\
+			</div>",
+		link: function($scope, element, attrs) {
+			rw.recv(rw.KEY.__router_status__, function(msg) {
+				if(msg.Value.connected) {
+					element.modal("hide");
+				} else {
+					element.modal("show");
+				}
+			});
+		}
 	};
-});
+}]);

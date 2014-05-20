@@ -5,7 +5,11 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 	$scope.bid = {};
 	$scope.ask = {};
 
-	$scope.plotConfig = {};
+	$scope.plotModel = {
+		config: {},
+		hover: false,
+		allocation: false
+	};
 
 	$scope.accept = {
 		qty: 0
@@ -15,9 +19,9 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		if(isValidBid($scope.bid.price, $scope.bid.qty)) {
 			var y = $scope.allocation.y - ($scope.bid.price * $scope.bid.qty);
 			var x = $scope.allocation.x + $scope.bid.qty;
-			$scope.hover = {x: x, y: y};
+			$scope.plotModel.hover = {x: x, y: y};
 		} else {
-			$scope.hover = false;
+			$scope.plotModel.hover = false;
 		}
 	};
 
@@ -34,9 +38,9 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		if(isValidAsk($scope.ask.price, -$scope.ask.qty)) {
 			var y = $scope.allocation.y + ($scope.ask.price * $scope.ask.qty);
 			var x = $scope.allocation.x - $scope.ask.qty;
-			$scope.hover = {x: x, y: y};
+			$scope.plotModel.hover = {x: x, y: y};
 		} else {
-			$scope.hover = false;
+			$scope.plotModel.hover = false;
 		}
 	};
 
@@ -56,7 +60,7 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		if(offer.qty > 0 && !$scope.config.canSell) return;
 		var y = $scope.allocation.y + (offer.price * offer.qty);
 		var x = $scope.allocation.x - offer.qty;
-		$scope.hover = {x: x, y: y};
+		$scope.plotModel.hover = {x: x, y: y};
 	};
 
 	$scope.openOffer = function(offer) {
@@ -134,9 +138,9 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 
 		$scope.showDefault = $scope.config.enableDefault && $scope.config.showDefault;
 
-		$scope.plotConfig.utilityFunction = $scope.utilityFunction;
-		$scope.plotConfig.dotsPerLine = $scope.dotsPerLine;
-		$scope.plotConfig.numCurves = $scope.config.numCurves;
+		$scope.plotModel.config.utilityFunction = $scope.utilityFunction;
+		$scope.plotModel.config.dotsPerLine = $scope.dotsPerLine;
+		$scope.plotModel.config.numCurves = $scope.config.numCurves;
 
 		$scope.rounds = $scope.config.rounds || 1;
 		$scope.round = 0;
@@ -183,8 +187,8 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 
 			$scope.allocation = {x: $scope.Ex, y: $scope.Ey};
 
-			$scope.plotConfig.xLimit = $scope.config.XLimit;
-			$scope.plotConfig.yLimit = $scope.config.YLimit;
+			$scope.plotModel.config.xLimit = $scope.config.XLimit;
+			$scope.plotModel.config.yLimit = $scope.config.YLimit;
 			$scope.$broadcast("plot.activate");
 
 			$scope.offers = {};
@@ -322,6 +326,10 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 			});
 	}, true /*Deep watch*/);
 
+	$scope.$watch("allocation", function(allocation) {
+		$scope.plotModel.allocation = allocation;
+	}, true);
+
 }]);
 
 Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout, AsyncCallManager) {
@@ -359,7 +367,8 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 			var plotWidth = svgWidth - plotMargin.left - plotMargin.right;
 			var plotHeight = svgHeight - plotMargin.bottom - plotMargin.top;
 
-			var baseLayer = plot.append("g");
+			var baseLayer = plot.append("g")
+				.style("cursor", "pointer");
 
 			var heatMapContainer = baseLayer.append("g");
 
@@ -435,7 +444,6 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				$scope.$apply(function() {
 
 					var values = {x: scales.offsetToX(position[0]), y: scales.offsetToY(position[1])};
-					console.log("x: " + values.x + ", y: " + values.y);
 
 					if(mouseDown) {
 						dragging = true;
@@ -524,7 +532,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 
 					baseLayer.attr("transform", "translate(" + "0" + "," + "0" + ")");
 					redrawAll($scope.config);
-				}, 200);
+				});
 			});
 
 			function onZoom(x, y) {

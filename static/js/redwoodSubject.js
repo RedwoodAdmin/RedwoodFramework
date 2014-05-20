@@ -1,5 +1,5 @@
 
-Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
+Redwood.factory("Subject", ["$rootScope", "RedwoodCore", function($rootScope, rw) {
 
 	var rs = {};
 
@@ -31,9 +31,7 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 		if(msg.Sender != "admin" && msg.Period != rw.periods[msg.Sender]) return;
 		if(rs._msg_handlers[msg.Key]) {
 			for(var i = 0, l = rs._msg_handlers[msg.Key].length; i < l; i++) {
-				$rootScope.$apply(function() {
-					rs._msg_handlers[msg.Key][i](msg.Sender, msg.Value);
-				});
+				rs._msg_handlers[msg.Key][i](msg.Sender, msg.Value);
 			}
 		}
 	};
@@ -41,9 +39,7 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 	rs._broadcast_event = function(eventName, value) {
 		if(rs._event_handlers[eventName]) {
 			for(var i = 0, l = rs._event_handlers[eventName].length; i < l; i++) {
-				$rootScope.$apply(function() {
-					rs._event_handlers[eventName][i](value);
-				});
+				rs._event_handlers[eventName][i](value);
 			}
 		}
 	};
@@ -59,9 +55,9 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 
 	rs._send = function(key, value, opts) {
 		opts = opts || {};
-		if(isNullOrUndefined(opts.period)) opts.period = rs.period;
-		if(isNullOrUndefined(opts.group)) opts.group = rs._group;
-		if(isNullOrUndefined(opts.sender)) opts.sender = rs.user_id;
+		if(angular.isNullOrUndefined(opts.period)) opts.period = rs.period;
+		if(angular.isNullOrUndefined(opts.group)) opts.group = rs._group;
+		if(angular.isNullOrUndefined(opts.sender)) opts.sender = rs.user_id;
 
 		if(rs._messaging_enabled) {
 			rw.send(key, value, opts);
@@ -323,10 +319,10 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 				_synced: []
 			},
 			get: function(key) {
-				return (isNullOrUndefined(this.data[key]) ? undefined : this.data[key].last());
+				return (angular.isNullOrUndefined(this.data[key]) ? undefined : this.data[key].last());
 			},
 			getPrevious: function(key) {
-				return (isNullOrUndefined(this.data[key]) ? undefined
+				return (angular.isNullOrUndefined(this.data[key]) ? undefined
 						: (this.data[key].length > 1 ? this.data[key][this.data[key].length - 2] : undefined));
 			},
 			_loaded: false});

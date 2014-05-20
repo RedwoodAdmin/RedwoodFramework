@@ -36,7 +36,8 @@
 													 class="input-group input-group-sm"
 													 key="{{bid.key}}"
 													 ng-click="projectOffer(bid)"
-													 ng-dblclick="openOffer(bid)">
+													 ng-dblclick="openOffer(bid)"
+													 style="cursor: pointer;">
 													<span class="input-group-addon no-input"
 														  ng-class="{'alert-danger': bid.user_id == $root.user_id}">
 														{{bid.price | number : 2}}
@@ -116,7 +117,8 @@
 													 class="input-group input-group-sm"
 													 key="{{ask.key}}"
 													 ng-click="projectOffer(ask)"
-													 ng-dblclick="openOffer(ask)">
+													 ng-dblclick="openOffer(ask)"
+													 style="cursor: pointer;">
 													<span class="input-group-addon no-input"
 														  ng-class="{'alert-danger': ask.user_id == $root.user_id}">
 														{{ask.price | number : 2}}
@@ -147,7 +149,7 @@
 				</div>
 				<div class="col-lg-6">
 					<div style="padding-right: 4px;">
-						<svg-plot ng-show="config.showHeatmap" config="plotConfig" allocation="allocation" hover="hover"></svg-plot>
+						<svg-plot ng-show="config.showHeatmap" config="plotModel.config" allocation="plotModel.allocation" hover="plotModel.hover"></svg-plot>
 					</div>
 				</div>
 			</div>
