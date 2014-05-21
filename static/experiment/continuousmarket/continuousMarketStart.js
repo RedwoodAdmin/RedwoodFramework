@@ -1,6 +1,6 @@
 
 
-Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout", "Subject", function($compile, $rootScope, $scope, $timeout, rs) {
+Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout", "RedwoodSubject", function($compile, $rootScope, $scope, $timeout, rs) {
 
 	$scope.bid = {};
 	$scope.ask = {};

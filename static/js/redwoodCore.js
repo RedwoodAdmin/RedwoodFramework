@@ -1,13 +1,10 @@
 
 var LOG_MESSAGES = true;
 
-var Redwood = angular.module("Redwood", [], function() {
-	$("body")//.attr("ng-controller", "CoreCtrl")
-		.append(angular.element("<error-modal>"));
-});
+var Redwood = angular.module("Redwood", []);
 
-Redwood.controller("CoreCtrl", ["$compile", "$rootScope", "$scope", "$timeout", "RedwoodCore", function($compile, $rootScope, $scope, $timeout, rw) {
-
+Redwood.run(["$rootScope", function($rootScope) {
+	$("body").append(angular.element("<error-modal>"));
 }]);
 
 Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeout", "Helpers", function($compile, $controller, $rootScope, $timeout, Helpers) {

@@ -1,5 +1,5 @@
 
-Redwood.factory("Subject", ["$rootScope", "RedwoodCore", function($rootScope, rw) {
+Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootScope, rw) {
 
 	var rs = {};
 
