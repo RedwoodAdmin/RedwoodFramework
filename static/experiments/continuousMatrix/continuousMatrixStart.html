@@ -1,0 +1,99 @@
+{% load verbatim %}
+<!DOCTYPE HTML>
+<html ng-app="Redwood">
+<head>
+	<title>Start</title>
+	<script type="text/javascript" src="{{ STATIC_URL }}js/jquery.min.js"></script>
+	<script type="text/javascript" src="{{ STATIC_URL }}flot/jquery.flot.js"></script>
+	<script type="text/javascript" src="{{ STATIC_URL }}flot/jquery.flot.dashes.js"></script>
+	<script type="text/javascript" src="{{ STATIC_URL }}angular/angular-1.3.0-beta.6.js"></script>
+	<script type="text/javascript" src="{{ STATIC_URL }}js/redwood2_helpers.js"></script>
+	<script type="text/javascript" src="{{ STATIC_URL }}js/redwood2.js"></script>
+	<script type="text/javascript" src="{{ STATIC_URL }}js/redwood2_subject.js"></script>
+	<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}css/bootstrap.min.css"></link>
+	<script type="text/javascript">
+		var STATIC_URL = "{{ STATIC_URL }}";
+		var IMAGE_URL = "{{ STATIC_URL }}/img/Continuous Matrix";
+		{{ js }}
+	</script>
+	<style type="text/css">
+		{{ css }}
+	</style>
+</head>
+{% verbatim %}
+<body ng-controller="SubjectCtrl" style="padding-top:60px;">
+
+<div class="navbar navbar-fixed-top container">
+	<div class="navbar-inner">
+		<div class="container-fluid">
+			<div class="brand" href="#">Interactive Decision Making Experiment</div>
+			<div class="nav-collapse collapse">
+				<p class="navbar-text pull-right">
+					User ID: <span class="navbar-link">{{$root.user_id}}</span>
+				</p>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="container">
+	<div class="row">
+		<div class="span3">
+			<div class="well sidebar-nav">
+				<ul class="nav nav-list">
+					<li>Period:<span class="pull-right">{{$root.period}}</span></li>
+					<li>Total Points:<span class="pull-right">{{$root.totalPoints | toFixed:2}}</span></li>
+				</ul>
+			</div>
+		</div>
+		<div class="span6"></div>
+		<div class="span3">
+			<div id="legend" class="pull-right" style="margin-top:40px;">
+				<div>
+					<img ng-src="{{ STATIC_URL }}img/Continuous Matrix/LegendGrey.png"></img>
+					<span>You</span>
+				</div>
+				<div>
+					<img ng-src="{{ STATIC_URL }}img/Continuous Matrix/LegendBlack.png"></img>
+					<span>Opponent</span>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="span3">
+			<table class="table table-bordered table-condensed">
+				<tr style="height:40px; text-align:center; vertical-align:middle;">
+					<td style=" text-align:center; vertical-align:middle;"></td>
+					<td id="action-10" style="text-align:center; vertical-align:middle;"></td>
+					<td id="action-11" style="text-align:center; vertical-align:middle;"></td>
+				</tr>
+				<tr style="height:40px;">
+					<td id="action-00" style="font-weight:bold; text-align:center; vertical-align:middle;"></td>
+					<td id="matrix-00" style="text-align:center; vertical-align:middle;"></td>
+					<td id="matrix-01" style="text-align:center; vertical-align:middle;"></td>
+				</tr>
+				<tr style="height:40px;">
+					<td id="action-01" style="font-weight:bold; text-align:center; vertical-align:middle;"></td>
+					<td id="matrix-10" style="text-align:center; vertical-align:middle;"></td>
+					<td id="matrix-11" style="text-align:center; vertical-align:middle;"></td>
+				</tr>
+			</table>
+			<div>
+				<span id="delay">&nbsp</span>
+			</div>
+			<hr/>
+			<div>
+				<button id="ready-button" class="btn" disabled="disabled">Ready</button>
+			</div>
+		</div>
+		<div class="span9">
+			<div>
+				<div id="plot" style="height:260px;"></div>
+			</div>
+		</div>
+	</div>
+</div>
+</body>
+{% endverbatim %}
+</html>
