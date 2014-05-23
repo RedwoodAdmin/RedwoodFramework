@@ -35,7 +35,8 @@
 								</tr>
 								<tr style="height:40px;">
 									<td class="input-cell" ng-class="{'selected': selection == 1}">
-										<a ng-click="onSelection(1)" class="input-link" href>A</a>
+										<span class="disabled" ng-hide="inputsEnabled">A</span>
+										<a ng-click="onSelection(1)" ng-show="inputsEnabled" class="input-link" href>A</a>
 									</td>
 									<td ng-class="{'selected': prevPartnerAction == 1 || selection == 1, 'double-selected': prevPartnerAction == 1 && selection == 1}">
 										<strong>{{matrix[0][0][0]}}</strong>, <span>{{matrix[0][0][1]}}</span>
@@ -46,7 +47,8 @@
 								</tr>
 								<tr style="height:40px;">
 									<td class="input-cell" ng-class="{'selected': selection == 2}">
-										<a ng-click="onSelection(2)" class="input-link" href>B</a>
+										<span class="disabled" ng-hide="inputsEnabled">B</span>
+										<a ng-click="onSelection(2)" ng-show="inputsEnabled" class="input-link" href>B</a>
 									</td>
 									<td ng-class="{'selected': prevPartnerAction == 1 || selection == 2, 'double-selected': prevPartnerAction == 1 && selection == 2}">
 										<strong>{{matrix[1][0][0]}}</strong>, <span>{{matrix[1][0][1]}}</span>

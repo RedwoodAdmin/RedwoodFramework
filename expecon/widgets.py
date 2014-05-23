@@ -7,11 +7,11 @@ class CodeEditorWidget(forms.Widget):
 	'''A widget for using the ACE editor (ace.ajax.org) on the admin page'''
 	@property
 	def media(self):
-		scripts = ["ace/ace.js", "ace/ace_editor.js"]
+		scripts = ["admin/ace/ace.js", "admin/ace/ace_editor.js"]
 		if self.mode:
-			scripts.append("ace/mode-{0}.js".format(self.mode))
+			scripts.append("admin/ace/mode-{0}.js".format(self.mode))
 
-		stylesheets = {'all': ('ace/ace_editor.css',)}
+		stylesheets = {'all': ('admin/ace/ace_editor.css',)}
 		return forms.Media(js=scripts, css=stylesheets)
 
 	template_name = 'ace_editor.html'
