@@ -103,6 +103,33 @@ Redwood.factory("Helpers", function() {
 
 });
 
+Redwood.directive("animateToggleClass", ['$timeout', function($timeout) {
+	return {
+		link: function($scope, element, attrs) {
+			var options = attrs.animateToggleClass;
+			var enabled = false;
+			var timeout;
+
+			function animate() {
+				element.toggleClass(options.class);
+				timeout = $timeout(animate, options.delay);
+			}
+
+			$scope.$watch(options.enabled.toString(), function(value) {
+				if(value && !enabled) {
+					element.addClass(options.class);
+					timeout = $timeout(animate, options.delay);
+				} else if (enabled && !value) {
+					$timeout.cancel(timeout);
+					element.removeClass(options.class);
+				}
+				enabled = value;
+			});
+
+		}
+	};
+}]);
+
 Redwood.directive("keyPress", function() {
 	return {
 		restrict: 'E',

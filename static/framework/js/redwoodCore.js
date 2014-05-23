@@ -48,11 +48,7 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 	}
 	$rootScope.user_id = rw.user_id;
 
-	Helpers.require(rw.__instance__ + '/static/js/random.js');
-	Helpers.require(rw.__instance__ + '/static/js/bootstrap.js');
-	Helpers.require(rw.__instance__ + '/static/js/bootstrap-modal.js');
-	Helpers.require(rw.__instance__ + '/static/js/domparser.js');
-	Helpers.require(rw.__instance__ + '/static/js/jquery.csv-0.7.min.js');
+	Helpers.require(rw.__instance__ + '/static/framework/js/lib/jquery/jquery.csv-0.7.min.js'); //Loads the specified script
 
 	rw.__listeners__ = {};
 
