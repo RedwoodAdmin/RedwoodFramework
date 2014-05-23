@@ -1,6 +1,6 @@
 Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", function($rootScope, $scope, rs) {
 
-	rs.on_load(function() { //called once the page has loaded for a new sub period
+	rs.on_load(function() {
 		rs.config.pairs.forEach(function(pair, index) { //decide who is the first player and who is the second player
 			var userIndex = pair.indexOf(parseInt(rs.user_id));
 			if(userIndex > -1) {
@@ -14,20 +14,16 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 
 		$scope.round = 0;
 
-		rs.after_waiting_for_all(function() { //Call this function once all subjects have reached this point
+		rs.after_waiting_for_all(function() {
 			rs.trigger("next_round"); //Start first round
 		});
 	});
 
 	$scope.onSelection = function(selection) {
 		if($scope.inputsEnabled) { //Only trigger action if selection has changed
-			rs.trigger("selection", selection);
+			$scope.selection = selection;
 		}
 	};
-
-	rs.on("selection", function(selection) {
-		$scope.selection = selection;
-	});
 
 	$scope.confirm = function() {
 		if(!angular.isNullOrUndefined($scope.selection)) { //Check that user has selected an action
@@ -40,6 +36,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 
 	rs.on("action", function(value) {
 		$scope.inputsEnabled = false;
+		$scope.selection = value;
 		$scope.action = value;
 		rs.after_waiting_for([$scope.partner_id], function() { //Call this function once the specified subjects have reached this point
 			allocateRewards($scope.action, $scope.partnerAction);
