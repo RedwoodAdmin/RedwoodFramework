@@ -1,0 +1,190 @@
+<div class="container">
+
+	<div class="navbar navbar-fixed-top container">
+		<div class="navbar navbar-default" style="margin-bottom: 0;">
+			<div class="navbar-brand" href="#">Economics Experiment</div>
+			<ul class="nav navbar-nav">
+				<li class="active">
+					<a>User ID: <span>{{$root.user_id}}</span></a>
+				</li>
+			</ul>
+			<div class="navbar-right">
+				<div class="navbar-text">Period: <span>{{$root.period}}</span></div>
+				<div class="navbar-text">Round: <span>{{round}} / {{rounds}}</span></div>
+				<div class="navbar-text">Time: <span>{{timeRemaining | timeString}}</span></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-lg-12">
+			<div class="row">
+				<div class="col-lg-6">
+					<div class="row">
+						<div class="col-lg-4" style="padding-right: 5px;">
+							<div class="panel panel-default">
+								<div class="panel-heading">Bids</div>
+								<div class="panel-body">
+									<div class="panel panel-default" style="height: 300px; overflow-y: auto;">
+										<div class="panel-body">
+											<div class="input-group input-group-sm">
+												<span class="input-group-addon no-input" style="font-weight: bold;">Price</span>
+												<span class="input-group-addon" style="font-weight: bold;">Qty</span>
+											</div>
+											<div id="bids-container">
+												<div ng-repeat="bid in bids"
+													 class="input-group input-group-sm"
+													 key="{{bid.key}}"
+													 ng-click="projectOffer(bid)"
+													 ng-dblclick="openOffer(bid)"
+													 style="cursor: pointer;">
+													<span class="input-group-addon no-input"
+														  ng-class="{'alert-danger': bid.user_id == $root.user_id}">
+														{{bid.price | number : 2}}
+													</span>
+													<span class="input-group-addon no-input"
+														  ng-class="{'alert-danger': bid.user_id == $root.user_id}">
+														{{bid.qty | number : 2}}
+													</span>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div id="bidForm" ng-show="config.canBid" ng-enabled="inputsEnabled" class="form-group">
+										<div class="input-group input-group-sm">
+											<span class="input-group-addon">Price</span>
+											<input type="number" ng-model="bid.price" ng-change="onBidInputChange()" min="0" id="bid-price" class="form-control"/>
+										</div>
+										<div class="input-group input-group-sm">
+											<span class="input-group-addon">Qty</span>
+											<input type="number" ng-model="bid.qty" ng-change="onBidInputChange()" min="0" class="form-control"/>
+										</div>
+										<button ng-click="submitBid()" ng-disabled="bidButtonLocked" class="btn btn-success btn-sm">Bid</button>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-4" style="padding-left: 5px; padding-right: 5px;">
+							<div class="panel panel-default">
+								<div class="panel-heading">Trades</div>
+								<div class="panel-body">
+									<div class="panel panel-default" style="height: 300px; overflow-y: auto;">
+										<div class="panel-body">
+											<div class="input-group input-group-sm">
+												<span class="input-group-addon no-input" style="font-weight: bold;">Price</span>
+												<span class="input-group-addon" style="font-weight: bold;">Qty</span>
+											</div>
+											<div id="trades-container">
+												<div ng-repeat="trade in trades"
+													 class="input-group input-group-sm">
+													<span class="input-group-addon no-input"
+														  ng-class="{'alert-danger': trade.user_id == $root.user_id}">
+														{{trade.price | number : 2}}
+													</span>
+													<span class="input-group-addon no-input"
+														  ng-class="{'alert-danger': trade.user_id == $root.user_id}">
+														{{trade.qty | number : 2}}
+													</span>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div class="form-group">
+										<div class="input-group input-group-sm">
+											<span class="input-group-addon">X</span>
+											<span class="form-control">{{allocation.x}}</span>
+										</div>
+										<div class="input-group input-group-sm" style="margin-top: 5px;">
+											<span class="input-group-addon">Y</span>
+											<span class="form-control">{{allocation.y}}</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-lg-4" style="padding-left: 5px;">
+							<div class="panel panel-default">
+								<div class="panel-heading">Asks</div>
+								<div class="panel-body">
+									<div class="panel panel-default" style="height: 300px; overflow-y: auto;">
+										<div class="panel-body">
+											<div class="input-group input-group-sm">
+												<span class="input-group-addon no-input" style="font-weight: bold;">Price</span>
+												<span class="input-group-addon" style="font-weight: bold;">Qty</span>
+											</div>
+											<div id="asks-container">
+												<div ng-repeat="ask in asks"
+													 class="input-group input-group-sm"
+													 key="{{ask.key}}"
+													 ng-click="projectOffer(ask)"
+													 ng-dblclick="openOffer(ask)"
+													 style="cursor: pointer;">
+													<span class="input-group-addon no-input"
+														  ng-class="{'alert-danger': ask.user_id == $root.user_id}">
+														{{ask.price | number : 2}}
+													</span>
+													<span class="input-group-addon no-input"
+														  ng-class="{'alert-danger': ask.user_id == $root.user_id}">
+														{{-ask.qty | number : 2}}
+													</span>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div id="askForm" ng-show="config.canAsk" ng-enabled="inputsEnabled" class="form-group">
+										<div class="input-group input-group-sm">
+											<span class="input-group-addon">Price</span>
+											<input type="number" ng-model="ask.price" ng-change="onAskInputChange()" min="0" class="form-control"/>
+										</div>
+										<div class="input-group input-group-sm">
+											<span class="input-group-addon">Qty</span>
+											<input type="number" ng-model="ask.qty" ng-change="onAskInputChange()" min="0" class="form-control"/>
+										</div>
+										<button ng-click="submitAsk()" ng-disabled="askButtonLocked" class="btn btn-success btn-sm">Ask</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div style="padding-right: 4px;">
+						<svg-plot ng-show="config.showHeatmap" config="plotModel.config" allocation="plotModel.allocation" hover="plotModel.hover"></svg-plot>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<hr style="margin-top:20px;"/>
+		<div class="col-lg-12" id="footer">
+
+		</div>
+	</div>
+
+	<div class="modal fade" id="acceptModal" tabindex="-1" role="dialog" aria-labelledby="title" aria-hidden="true" data-keyboard="true">
+		<div class="modal-dialog modal-sm">
+			<div class="modal-content" ng-enabled="inputsEnabled">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+					<h4 class="modal-title" id="title">Accept <span id="acceptType">{{selectedOffer | offerType}}</span></h4>
+				</div>
+				<div id="modalBody" class="modal-body">
+					<div class="input-group input-group-sm">
+						<span class="input-group-addon no-input">Price: <span>{{selectedOffer.price | abs | number : 2}}</span></span>
+						<span class="input-group-addon">Qty: <span>{{selectedOffer.qty | abs | number : 2}}</span></span>
+					</div>
+					<div class="input-group input-group-sm">
+						<span class="input-group-addon">Accept</span>
+						<input type="number" ng-model="accept.qty" min="0" class="form-control"/>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button ng-click="acceptOffer()" type="button" class="btn btn-success btn-sm">Accept</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+</div>

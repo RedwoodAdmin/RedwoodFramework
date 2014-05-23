@@ -57,16 +57,17 @@ d3.rw = d3.rw || {};
                 prevX++;
             }
 
-            path = path.sort(function(a, b) {
+			path = path.sort(function(a, b) {
                 return a[0] - b[0];
             });
 
-            var curve = container.selectAll(".indifference-curve").data([path]);
+            var curve = container.selectAll(".indifference-curve").data(path.length ? [path] : []);
             curve.enter()
 				.append("path")
                 .attr("class", "indifference-curve")
 				.style("fill", "none");
-            curve.attr("d", line);
+            curve.attr("d", line)
+			curve.exit().remove();
         }
 
         function indifferenceCurve(g) {

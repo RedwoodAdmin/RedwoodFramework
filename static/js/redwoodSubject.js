@@ -1,5 +1,5 @@
 
-Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
+Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootScope, rw) {
 
 	var rs = {};
 
@@ -31,9 +31,7 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 		if(msg.Sender != "admin" && msg.Period != rw.periods[msg.Sender]) return;
 		if(rs._msg_handlers[msg.Key]) {
 			for(var i = 0, l = rs._msg_handlers[msg.Key].length; i < l; i++) {
-				$rootScope.$apply(function() {
-					rs._msg_handlers[msg.Key][i](msg.Sender, msg.Value);
-				});
+				rs._msg_handlers[msg.Key][i](msg.Sender, msg.Value);
 			}
 		}
 	};
@@ -41,9 +39,7 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 	rs._broadcast_event = function(eventName, value) {
 		if(rs._event_handlers[eventName]) {
 			for(var i = 0, l = rs._event_handlers[eventName].length; i < l; i++) {
-				$rootScope.$apply(function() {
-					rs._event_handlers[eventName][i](value);
-				});
+				rs._event_handlers[eventName][i](value);
 			}
 		}
 	};
@@ -59,9 +55,9 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 
 	rs._send = function(key, value, opts) {
 		opts = opts || {};
-		if(isNullOrUndefined(opts.period)) opts.period = rs.period;
-		if(isNullOrUndefined(opts.group)) opts.group = rs._group;
-		if(isNullOrUndefined(opts.sender)) opts.sender = rs.user_id;
+		if(angular.isNullOrUndefined(opts.period)) opts.period = rs.period;
+		if(angular.isNullOrUndefined(opts.group)) opts.group = rs._group;
+		if(angular.isNullOrUndefined(opts.sender)) opts.sender = rs.user_id;
 
 		if(rs._messaging_enabled) {
 			rw.send(key, value, opts);
@@ -323,21 +319,21 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 				_synced: []
 			},
 			get: function(key) {
-				return (isNullOrUndefined(this.data[key]) ? undefined : this.data[key].last());
+				return (angular.isNullOrUndefined(this.data[key]) ? undefined : this.data[key].last());
 			},
 			getPrevious: function(key) {
-				return (isNullOrUndefined(this.data[key]) ? undefined
+				return (angular.isNullOrUndefined(this.data[key]) ? undefined
 						: (this.data[key].length > 1 ? this.data[key][this.data[key].length - 2] : undefined));
 			},
 			_loaded: false});
 		rs.subjects.sort(function(a,b) {
 			return parseInt(a.user_id) - parseInt(b.user_id);
 		});
-		rs.subjects.forEach(function() {
-			rs.subject[this.user_id] = this;
+		rs.subjects.forEach(function(subject) {
+			rs.subject[subject.user_id] = subject;
 		});
-		rs.other_subjects = rs.subjects.where(function() {
-			this.user_id !== rs.user_id;
+		rs.other_subjects = rs.subjects.filter(function(subject) {
+			subject.user_id !== rs.user_id;
 		})
 	});
 
@@ -359,7 +355,7 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 			|| rw.groups[msg.Sender] != rs._group
 			|| !rs.subject[msg.Sender]) return;
 		rs.subject[msg.Sender]._loaded = true;
-		var not_loaded = rs.subjects.firstWhere(function() {return !this._loaded;});
+		var not_loaded = rs.subjects.some(function(subject) {return !subject._loaded;});
 		if(!not_loaded) {
 			rs._enable_messaging();
 		}
@@ -373,8 +369,8 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 		rs._on_synced(sender);
 	});
 	rs.after_waiting_for_all = function(f) {
-		var subjects = rw.subjects.where(function() {
-			return rw.groups[this] == rs._group;
+		var subjects = rw.subjects.filter(function(id) {
+			return rw.groups[id] == rs._group;
 		});
 		rs._waits.push({ users: subjects, f: f });
 		rs.trigger("_synced", { period: rs.period });
@@ -386,16 +382,15 @@ Redwood.factory("Subject", ["$rootScope", "Redwood", function($rootScope, rw) {
 	};
 	rs._on_synced = function(user_id) {
 		if(rs._waits[0]) {
-			var subjects = rs.subjects.where(function() {
-				var _this = this;
-				return rs._waits[0].users.firstWhere(function() {return _this.user_id == this});
+			var subjects = rs.subjects.filter(function(subject) {
+				return rs._waits[0].users.indexOf(subject.user_id) > -1;
 			});
-			var syncCount = subjects[0].data._synced.where(function() {
-				return this.period == rs.period;
+			var syncCount = subjects[0].data._synced.filter(function(subject) {
+				return subject.period == rs.period;
 			}).length;
-			if(!subjects.firstWhere(function() {
-					return this.data._synced.where(function() {
-						return this.period == rs.period;
+			if(!subjects.some(function(subject) {
+					return subject.data._synced.filter(function(s) {
+						return s.period == rs.period;
 					}).length != syncCount;
 				})) {
 				var f = rs._waits.shift().f;
