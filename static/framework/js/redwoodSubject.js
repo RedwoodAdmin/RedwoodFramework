@@ -1,5 +1,5 @@
 
-Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootScope, rw) {
+Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", function($rootScope, $timeout, rw) {
 
 	var rs = {};
 
@@ -68,9 +68,6 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootSc
 
 	rs.trigger = function(eventName, value) {
 		rs._send(eventName, value);
-		/*if(!rw.__sync__.in_progress) {
-			rs._broadcast_event(eventName, value);
-		}*/
 	};
 
 	rs.on = function(eventName, f) {
@@ -211,7 +208,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootSc
 
 	rs.next_period = function(delay_secs) {
 		delay_secs = delay_secs || 0;
-		setTimeout(function(){rs.trigger("_next_period");}, delay_secs * 1000);
+		rs.timeout(function(){rs.trigger("_next_period");}, delay_secs * 1000);
 	};
 
 	rs.on("_next_period", function() {
@@ -221,7 +218,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootSc
 
 	rs.finish = function(delay_secs) {
 		delay_secs = delay_secs || 0;
-		setTimeout(function(){rs.trigger("_finish");}, delay_secs * 1000);
+		rs.timeout(function(){rs.trigger("_finish");}, delay_secs * 1000);
 	};
 
 	rs.on("_finish", function() {
@@ -229,7 +226,11 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootSc
 		rw.set_period(rw.configs.length + 1);
 	});
 
-	rs._when_live_callbacks = {};
+	rw.on_sync_complete(function() {
+		rs.is_realtime = true;
+	});
+
+	/*rs._when_live_callbacks = {};
 	rs.when_live = function(key, f) {
 		if(rw.__sync__.in_progress) {
 			rs._when_live_callbacks[key] = f;
@@ -237,64 +238,72 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootSc
 				delete rs._when_live_callbacks[key];
 			});
 		} else {
-			setTimeout(f, 0);
+			$timeout(f, 0);
 		}
 	};
 	rs.cancel = function(key) {
 		rs.trigger("_cancel_" + key);
 	};
-
 	rw.on_sync_complete(function() {
 		for(var key in rs._when_live_callbacks) {
 			rs._when_live_callbacks[key]();
 		}
-	});
+	});*/
 
-	rs._scheduled_callbacks = {};
-	rs.schedule = function(f, delay_ms) {
-		delay_ms = delay_ms || 0;
-		var key = Object.size(rs._scheduled_callbacks);
-		if(rw.__sync__.in_progress) {
-			rs._scheduled_callbacks[key] = {f: f, delay: delay_ms};
-			rs.on("_cancel_" + key, function(){
-				delete rs._scheduled_callbacks[key];
-			});
-		} else {
-			setTimeout(f, delay_ms);
-		}
-	};
-	rw.on_sync_complete(function() {
-		for(var key in rs._scheduled_callbacks) {
-			setTimeout(function() {
-				rs._scheduled_callbacks[key].f();
-				//rs.trigger("_cancel_" + key);
-			}, rs._scheduled_callbacks[key].delay);
-		}
-	});
-
-	rs._when_realtime_callbacks = {};
+	/*rs._when_realtime_callbacks = {};
 	rs.when_realtime = function(f, delay_ms) {
 		delay_ms = delay_ms || 0;
 		var key = Object.size(rs._when_realtime_callbacks);
 		if(rw.__sync__.in_progress) {
 			rs._when_realtime_callbacks[key] = {f: f, delay: delay_ms};
 		} else {
-			setTimeout(function() {
+			$timeout(function() {
 				f();
 			}, delay_ms);
 		}
 	};
 	rw.on_sync_complete(function() {
 		for(var key in rs._when_realtime_callbacks) {
-			setTimeout(function() {
+			$timeout(function() {
 				rs._when_realtime_callbacks[key].f();
 			}, rs._when_realtime_callbacks[key].delay);
 		}
-	});
+	});*/
 
-	rw.on_sync_complete(function() {
-		rs.is_realtime = true;
+	rs._delayIfNotRealtime = function(f) {
+		if(rw.__sync__.in_progress) {
+			rw.on_sync_complete(f);
+		} else {
+			f();
+		}
+	};
+
+	rs._timeout_callbacks = {};
+	var timeoutKey = 1;
+	rs.timeout = function(f, delay_ms) {
+		delay_ms = delay_ms || 0;
+		var key = timeoutKey++;
+		rs._timeout_callbacks[key] = {f: f, delay: delay_ms};
+		rs._delayIfNotRealtime(function() {
+			if(rs._timeout_callbacks[key]) {
+				rs._timeout_callbacks[key].timeout = $timeout(function() {
+					rs.trigger('_execute_timeout', key);
+				}, rs._timeout_callbacks[key].delay);
+			}
+		});
+		return key;
+	};
+	rs.on('_execute_timeout', function(key) {
+		rs._timeout_callbacks[key].f();
+		delete rs._timeout_callbacks[key];
 	});
+	rs.timeout.cancel = function(key) {
+		if(!key || !rs._timeout_callbacks[key]) return;
+		if(rs._timeout_callbacks[key] && rs._timeout_callbacks[key].timeout) {
+			$timeout.cancel(rs._timeout_callbacks[key].timeout);
+		}
+		delete rs._timeout_callbacks[key];
+	};
 
 	rw.recv_subjects("__set_group__", function(msg) {
 		if(msg.Sender == rs.user_id) {
@@ -361,7 +370,32 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootSc
 		}
 	});
 
-	rs._waits = [];
+	var gates = {};
+	rs.gate = function(gateId, f) {
+		gates[gateId] = gates[gateId] || {subjects: []};
+		gates[gateId].callback = f;
+		rs.trigger("_at_gate", gateId);
+	};
+	rs.on('_at_gate', function(gateId) {
+		gates[gateId].subjects.push(rs.user_id);
+		checkGate(gates[gateId]);
+	});
+	rs.recv('_at_gate', function(sender, gateId) {
+		gates[gateId] = gates[gateId] || {subjects: []};
+		gates[gateId].subjects.push(sender);
+		checkGate(gates[gateId]);
+	});
+	function checkGate(gate) {
+		if(rs.subjects.some(function(subject) {
+			return gate.subjects.indexOf(subject.user_id) < 0;
+		})) {
+			return;
+		}
+		gate.callback();
+		delete gate;
+	}
+
+	/*rs._waits = [];
 	rs.on("_synced", function() {
 		rs._on_synced(rs.user_id);
 	});
@@ -381,6 +415,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootSc
 		rs.trigger("_synced", { period: rs.period });
 	};
 	rs._on_synced = function(user_id) {
+
 		if(rs._waits[0]) {
 			var subjects = rs.subjects.filter(function(subject) {
 				return rs._waits[0].users.indexOf(subject.user_id) > -1;
@@ -397,17 +432,17 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "RedwoodCore", function($rootSc
 				f();
 			}
 		}
-	};
+	};*/
 
 	rs._start_period = function() {
-		for(var i = 0; i < rs._on_load_callbacks.length; i++) {
+		while(rs._on_load_callbacks.length) {
 			(rs._on_load_callbacks.shift())();
 		}
 	};
 
 	rw.on_load(function() {
 		$rootScope.period = rs.period;
-		rs.after_waiting_for_all(function() {
+		rs.gate('_on_load', function() {
 
 			if(rs.config && $.isArray(rs.config.groups) && rs.config.groups.length > 0 && $.isArray(rs.config.groups[0])) {
 				for(var i = 0; i < rs.config.groups.length; i++) {

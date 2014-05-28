@@ -70,7 +70,7 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 			rw.pages = {}; //by subject
 			rw.config = {};
 			rw.configs = [];
-			rw.queue = [];
+			rw.recv_queue = [];
 			rw.time_delta = 0;
 			rw.send = rw.__default_send__;
 
@@ -123,15 +123,8 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 					if(!rw.__is_reload__){
 						rw.send(rw.KEY.__page_loaded__);
 					}
-					for(var i = 0, l = (rw.__send_queue__.length); i < l; i++) {
-						//rw.send(rw.__send_queue__[i].key, rw.__send_queue__[i].value, rw.__send_queue__[i].args);
-					}
-				}
-				if(rw.__sync__.in_progress && rw.__send_queue__.length > 0) {
-					var queuedMsg = rw.convertToMessage(rw.__send_queue__[0].key, rw.__send_queue__[0].value, rw.__send_queue__[0].args);
-					if(msg.Key === queuedMsg.Key && msg.Sender === queuedMsg.Sender) {
-						rw.__send_queue__.shift();
-					}
+					processSendQueue();
+
 				}
 
 				rw.__handle_msg__(msg);
@@ -153,6 +146,43 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 			}, 1000);
 		}
 	};
+
+	function getMsgId(msg) {
+		return '_' + msg.Period + '_' + msg.Sender + '_' + msg.Key;
+	}
+	function processSendQueue() {
+		var sendCounts = {};
+		rw.__send_queue__.map(function(queued) {
+			return rw.convertToMessage(queued.key, queued.value, queued.args);
+		}).forEach(function(msg) {
+			var id = getMsgId(msg);
+			sendCounts[id] = sendCounts[id] || 0;
+			sendCounts[id]++;
+		});
+		var recvCounts = {};
+		rw.recv_queue.forEach(function(msg) {
+			var id = getMsgId(msg);
+			recvCounts[id] = recvCounts[id] || 0;
+			recvCounts[id]++;
+		});
+
+		var sendStack = [];
+		for(var i = rw.__send_queue__.length - 1; i >= 0; i--) {
+			var queued = rw.__send_queue__[i];
+			var msg = rw.convertToMessage(queued.key, queued.value, queued.args);
+			var id = getMsgId(msg);
+			if(sendCounts[id] > recvCounts[id]) {
+				sendStack.push(queued);
+				sendCounts[id]--;
+			}
+		}
+
+		while(sendStack.length) {
+			var msg = sendStack.pop();
+			rw.send(msg.key, msg.value, msg.args);
+		}
+
+	}
 
 	rw.convertToMessage = function(key, value, args) {
 		args = args || {};
@@ -187,21 +217,8 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 	};
 
 	rw.__is_queueable__ = function(key) {
-		return key.substring(0, 2) !== "__"
-			||(key !== rw.KEY.__register__
-				&& key !== rw.KEY.__pause__
-				&& key !== rw.KEY.__reset__
-				&& key !== rw.KEY.__delete__
-				&& key !== rw.KEY.__error__
-
-				&& key !== rw.KEY.__set_config__
-				&& key !== rw.KEY.__set_group__
-				&& key !== rw.KEY.__set_period__
-				&& key !== rw.KEY.__set_page__
-
-				&& key !== rw.KEY.__router_status__
-				&& key !== rw.KEY.__queue_start__
-				&& key !== rw.KEY.__queue_end__);
+		return key !== rw.KEY.__reset__
+			&& key !== rw.KEY.__delete__;
 	};
 
 	rw.__sync_send__ = function(key, value, args) {
@@ -382,11 +399,11 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 				break;
 		}
 
-		rw.queue.push(msg);
+		rw.recv_queue.push(msg);
 		rw.__broadcast__(msg);
 
 		if(rw.__pending_reload__) {
-			setTimeout(function() { window.location.reload(true); }, 0);
+			$timeout(function() { window.location.reload(true); }, 0);
 		}
 	};
 
