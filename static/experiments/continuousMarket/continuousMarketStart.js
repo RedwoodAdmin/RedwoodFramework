@@ -706,24 +706,4 @@ Redwood
 			}
 			return (offer.qty > 0 ? "Bid" : "Ask");
 		};
-	})
-	.filter("abs", function() {
-		return function(value) {
-			if(!value) return value;
-			return Math.abs(value);
-		};
-	})
-	.filter("timeString", function() {
-		return function(timeRemaining) {
-			timeRemaining = timeRemaining || 0;
-			var minutes = Math.floor(timeRemaining / 60).toString();
-			if(minutes.length < 2) {
-				minutes = "0" + minutes;
-			}
-			var seconds = Math.floor(timeRemaining - (minutes * 60)).toString();
-			if(seconds.length < 2) {
-				seconds = "0" + seconds;
-			}
-			return minutes + ":" + seconds;
-		};
 	});

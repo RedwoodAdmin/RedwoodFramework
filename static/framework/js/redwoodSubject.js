@@ -213,7 +213,9 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 
 	rs.on("_next_period", function() {
 		rs.set("_accumulated_points", rs.accumulated_points);
-		rw.set_period(rs.period + 1);
+		rs.gate('_next_period', function() {
+			rw.set_period(rs.period + 1);
+		});
 	});
 
 	rs.finish = function(delay_secs) {

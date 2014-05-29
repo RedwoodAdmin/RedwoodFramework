@@ -14,7 +14,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 
 		$scope.round = 0;
 
-		rs.after_waiting_for_all(function() {
+		rs.gate('on_load', function() {
 			rs.trigger("next_round"); //Start first round
 		});
 	});
