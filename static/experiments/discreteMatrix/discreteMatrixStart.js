@@ -38,10 +38,10 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		$scope.inputsEnabled = false;
 		$scope.selection = value;
 		$scope.action = value;
-		rs.after_waiting_for([$scope.partner_id], function() { //Call this function once the specified subjects have reached this point
+		rs.gate('round_' + $scope.round, function() { //Call this function once the specified subjects have reached this point
 			allocateRewards($scope.action, $scope.partnerAction);
 			rs.trigger("next_round");
-		});
+		}, [$scope.partner_id]);
 	});
 
 	rs.recv("action", function(sender, value) {

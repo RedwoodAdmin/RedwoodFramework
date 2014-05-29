@@ -213,9 +213,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 
 	rs.on("_next_period", function() {
 		rs.set("_accumulated_points", rs.accumulated_points);
-		rs.gate('_next_period', function() {
-			rw.set_period(rs.period + 1);
-		});
+		rw.set_period(rs.period + 1);
 	});
 
 	rs.finish = function(delay_secs) {
@@ -373,28 +371,40 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 	});
 
 	var gates = {};
-	rs.gate = function(gateId, f) {
-		gates[gateId] = gates[gateId] || {subjects: []};
+	rs.gate = function(gateId, f, subjectIds) {
+		gates[gateId] = gates[gateId] || {received: []};
+		if(subjectIds) {
+			gates[gateId].subjectIds = subjectIds;
+		}
 		gates[gateId].callback = f;
 		rs.trigger("_at_gate", gateId);
 	};
 	rs.on('_at_gate', function(gateId) {
-		gates[gateId].subjects.push(rs.user_id);
-		checkGate(gates[gateId]);
+		gates[gateId].received.push(rs.user_id);
+		checkGate(gateId);
 	});
 	rs.recv('_at_gate', function(sender, gateId) {
-		gates[gateId] = gates[gateId] || {subjects: []};
-		gates[gateId].subjects.push(sender);
-		checkGate(gates[gateId]);
+		gates[gateId] = gates[gateId] || {received: []};
+		gates[gateId].received.push(sender);
+		checkGate(gateId);
 	});
-	function checkGate(gate) {
-		if(rs.subjects.some(function(subject) {
-			return gate.subjects.indexOf(subject.user_id) < 0;
-		})) {
-			return;
+	function checkGate(gateId) {
+		var gate = gates[gateId];
+		if(gate.subjectIds) {
+			if(gate.subjectIds.some(function(id) {
+				return gate.received.indexOf(id) < 0;
+			})) {
+				return;
+			}
+		} else {
+			if(rs.subjects.some(function(subject) {
+				return gate.received.indexOf(subject.user_id) < 0;
+			})) {
+				return;
+			}
 		}
 		gate.callback();
-		delete gate;
+		delete gates[gateId];
 	}
 
 	/*rs._waits = [];
