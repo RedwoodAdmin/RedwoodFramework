@@ -17,7 +17,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
 		$scope.config = rs.config;
 
-		$scope.yMax = $scope.matrix[0][0][0];
+		$scope.yMax = $scope.matrix[0][0][0]; //Find the maximum reward value to set the y-axis on the plot
 		$scope.matrix.forEach(function(row) {
 			row.forEach(function(cell) {
 				cell.forEach(function(value) {
@@ -35,19 +35,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 		var numSubPeriods = rs.config.num_sub_periods || (rs.config.period_length_s * CLOCK_FREQUENCY); //If this config value is zero there will be a subperiod every tick
 		$scope.ticksPerSubPeriod = Math.max(Math.floor(rs.config.period_length_s * CLOCK_FREQUENCY / numSubPeriods), 1);
 
-		$scope.subPeriods = [];
-		if($scope.ticksPerSubPeriod > 1){ //set up the sub period markers so they can be displayed on the plot
-			var subPeriod = 0;
-			do {
-				subPeriod += $scope.ticksPerSubPeriod;
-				$scope.subPeriods.push(subPeriod / $scope.clock.getDurationInTicks());
-			} while(subPeriod < $scope.clock.getDurationInTicks());
-		}
-
 		$scope.rewards = [];
 		$scope.opponentRewards = [];
-		$scope.plot = [];
-		$scope.opponentPlot = [];
 
 		$scope.readyEnabled = true;
 	});
@@ -80,16 +69,13 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 		$scope.tick = tick;
 
 		if(tick % $scope.ticksPerSubPeriod === 0) { //if this is the end of a sub period (in the "continuous" version, every tick is the end of a sub period)
+
 			var reward = $scope.matrix[$scope.action - 1][$scope.partnerAction - 1][0]; //allocate reward based on the current user actions and the matrix
 			$scope.rewards.push(reward);
 			rs.add_points(reward * $scope.ticksPerSubPeriod / $scope.clock.getDurationInTicks()); //add the integral of the current reward value over the length of the subperiod
-
-			$scope.plot.push([(tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.rewards[$scope.rewards.length - 1]]);
-			$scope.plot.push([tick / $scope.clock.getDurationInTicks(), $scope.rewards[$scope.rewards.length - 1]]);
 			var opponentReward = $scope.matrix[$scope.action - 1][$scope.partnerAction - 1][1];
 			$scope.opponentRewards.push(opponentReward);
-			$scope.opponentPlot.push([(tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.opponentRewards[$scope.opponentRewards.length - 1]]);
-			$scope.opponentPlot.push([tick / $scope.clock.getDurationInTicks(), $scope.opponentRewards[$scope.opponentRewards.length - 1]]);
+
 			$scope.prevPartnerAction = $scope.partnerAction;
 		}
 
@@ -148,11 +134,27 @@ Redwood.directive('plot', [function() {
 	return {
 		link: function($scope, elem, attr) {
 
-			$scope.$watch('config', function(plot) {
+			var plot = [], opponentPlot = [], subPeriods = [];
+
+			$scope.$watch('config', function() {
+				if($scope.ticksPerSubPeriod > 1){ //set up the sub period markers so they can be displayed on the plot
+					var subPeriod = 0;
+					do {
+						subPeriod += $scope.ticksPerSubPeriod;
+						subPeriods.push(subPeriod / $scope.clock.getDurationInTicks());
+					} while(subPeriod < $scope.clock.getDurationInTicks());
+				}
 				replot();
 			}, true);
 
-			$scope.$watch('tick', function(plot) {
+			$scope.$watch('tick', function(tick) {
+				if(tick % $scope.ticksPerSubPeriod === 0) {
+					plot.push([($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.rewards[$scope.rewards.length - 1]]);
+					plot.push([$scope.tick / $scope.clock.getDurationInTicks(), $scope.rewards[$scope.rewards.length - 1]]);
+					opponentPlot.push([($scope.tick - $scope.ticksPerSubPeriod) / $scope.clock.getDurationInTicks(), $scope.opponentRewards[$scope.opponentRewards.length - 1]]);
+					opponentPlot.push([$scope.tick / $scope.clock.getDurationInTicks(), $scope.opponentRewards[$scope.opponentRewards.length - 1]]);
+					replot();
+				}
 				replot();
 			}, true);
 
@@ -167,40 +169,35 @@ Redwood.directive('plot', [function() {
 					series: { shadowSize: 0 }
 				};
 				var dataset = [];
-				if($scope.subPeriods) {
-					for(var p = 0; p < $scope.subPeriods.length; p++){ //mark each sub-period with a vertical red line
-						dataset.push({
-							data: [
-								[$scope.subPeriods[p], opts.yaxis.min],
-								[$scope.subPeriods[p], opts.yaxis.max]
-							],
-							lines: { lineWidth: 1 },
-							color: "red"
-						});
-					}
-				}
-				if($scope.plot) {
-					dataset.push({ //plot your rewards as a grey integral
-						data: $scope.plot,
-						lines: { fill: true, lineWidth: 0, fillColor: "grey" },
-						color: "grey"
-					});
-					dataset.push({ //plot your opponent's rewards as a black line
-						data: $scope.opponentPlot,
-						lines: { lineWidth: 2 },
-						color: "black"
-					});
-				}
-
-				if($scope.clock) {
-					dataset.push({ //display the current time indicator as a vertical grey line
+				for(var p = 0; p < subPeriods.length; p++){ //mark each sub-period with a vertical red line
+					dataset.push({
 						data: [
-							[$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.min],
-							[$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.max]
+							[subPeriods[p], opts.yaxis.min],
+							[subPeriods[p], opts.yaxis.max]
 						],
-						color: "grey"
+						lines: { lineWidth: 1 },
+						color: "red"
 					});
 				}
+				dataset.push({ //plot your rewards as a grey integral
+					data: plot,
+					lines: { fill: true, lineWidth: 0, fillColor: "grey" },
+					color: "grey"
+				});
+				dataset.push({ //plot your opponent's rewards as a black line
+					data: opponentPlot,
+					lines: { lineWidth: 2 },
+					color: "black"
+				});
+
+				dataset.push({ //display the current time indicator as a vertical grey line
+					data: [
+						[$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.min],
+						[$scope.tick / $scope.clock.getDurationInTicks(), opts.yaxis.max]
+					],
+					color: "grey"
+				});
+
 				$.plot(elem, dataset, opts);
 			}
 		}
