@@ -372,6 +372,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 
 	var gates = {};
 	rs.gate = function(gateId, f, subjectIds) {
+		gateId += '_' + rs.period;
 		gates[gateId] = gates[gateId] || {received: []};
 		if(subjectIds) {
 			gates[gateId].subjectIds = subjectIds;
