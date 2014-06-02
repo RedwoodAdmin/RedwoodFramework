@@ -287,16 +287,13 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 		rs._delayIfNotRealtime(function() {
 			if(rs._timeout_callbacks[key]) {
 				rs._timeout_callbacks[key].timeout = $timeout(function() {
-					rs.trigger('_execute_timeout', key);
+					rs._timeout_callbacks[key].f();
+					delete rs._timeout_callbacks[key];
 				}, rs._timeout_callbacks[key].delay);
 			}
 		});
 		return key;
 	};
-	rs.on('_execute_timeout', function(key) {
-		rs._timeout_callbacks[key].f();
-		delete rs._timeout_callbacks[key];
-	});
 	rs.timeout.cancel = function(key) {
 		if(!key || !rs._timeout_callbacks[key]) return;
 		if(rs._timeout_callbacks[key] && rs._timeout_callbacks[key].timeout) {
