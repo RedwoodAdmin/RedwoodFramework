@@ -31,7 +31,7 @@ Redwood.factory('AsyncCallManager', ['$q', '$rootScope', '$timeout', function($q
                 }
 
                 return deferred.promise;
-            }
+            };
 
             return wrapper;
         },
@@ -68,40 +68,81 @@ Redwood.factory('AsyncCallManager', ['$q', '$rootScope', '$timeout', function($q
             return wrapper;
         },
 
-        waitForSubsequentCallsTo: function(f, delay) {
+        waitAndOnlyExecuteLastCallTo: function(f, delay) {
 
-            var queue = [];
-            var scheduledExecution;
+            var batches = [[]];
+            var timeout;
 
-            var execute = function() {
-                var q = [];
-                while(queue.length) {
-                    q.push(queue.pop()); //reverse order
-                }
-                var deferred = q.shift();
+            var execute = asyncCallManagerService.queueOverlappingCallsTo(function() {
+                var deferred = $q.defer();
+                var batch = batches.shift();
+                var call = batch.pop();
                 f().then(function(result) {
-                    deferred.resolve(result);
-                    while(q.length) {
-                        deferred = q.shift();
-                        deferred.resolve(result);
+                    call.resolve(result);
+                    while(batch.length) {
+                        call = batch.pop();
+                        call.resolve(result);
                     }
+                    deferred.resolve();
                 });
-            };
+                return deferred.promise;
+            });
 
             var wrapper = function() {
                 var deferred = $q.defer();
-                queue.push(deferred);
+                batches[batches.length - 1].push(deferred);
 
-                if(scheduledExecution) {
-                    $timeout.cancel(scheduledExecution);
+                if(timeout) {
+                    $timeout.cancel(timeout);
                 }
-                scheduledExecution = $timeout(execute, delay);
+                timeout = $timeout(function() {
+                    batches.push([]);
+                    execute();
+                }, delay);
 
                 return deferred.promise;
-            }
+            };
 
             return wrapper;
-        }
+        },
+
+		limitCallRateTo: function(f, dt) {
+
+			var batches = [[]];
+			var timeout;
+
+			var execute = asyncCallManagerService.queueOverlappingCallsTo(function() {
+				var deferred = $q.defer();
+				var batch = batches.shift();
+				var call = batch.pop();
+				f().then(function(result) {
+					call.resolve(result);
+					while(batch.length) {
+						call = batch.pop();
+						call.resolve(result);
+					}
+					deferred.resolve();
+				});
+				return deferred.promise;
+			});
+
+			var wrapper = function() {
+				var deferred = $q.defer();
+				batches[batches.length - 1].push(deferred);
+
+				if(!timeout) {
+					timeout = $timeout(function() {
+						batches.push([]);
+						execute();
+						timeout = null;
+					}, dt);
+				}
+
+				return deferred.promise;
+			};
+
+			return wrapper;
+		}
 
     };
 
