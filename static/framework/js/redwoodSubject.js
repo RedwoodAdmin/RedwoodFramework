@@ -5,8 +5,9 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 
 	rs.user_id = rw.user_id;
 	rs.subjects = [];
-	rs.other_subjects = [];
+	$rootScope.subjects = rs.subjects;
 	rs.subject = {};
+	$rootScope.subject = rs.subject;
 	rs.points = 0;
 	rs.accumulated_points = 0;
 	$rootScope.points = 0;
@@ -102,6 +103,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 			if ((!config.period && rs.period == i + 1) || config.period === rs.period) {
 				if (!config.group || config.group == rs._group) {
 					rs.config = config;
+					$rootScope.config = config;
 					if(rs.config.pause) {
 						rs._pause[rs.period] = true;
 					}
@@ -338,9 +340,10 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 		rs.subjects.forEach(function(subject) {
 			rs.subject[subject.user_id] = subject;
 		});
-		rs.other_subjects = rs.subjects.filter(function(subject) {
-			subject.user_id !== rs.user_id;
-		})
+		rs.otherSubjects = rs.subjects.filter(function(subject) {
+			return subject.user_id !== rs.user_id;
+		});
+		$rootScope.otherSubjects = rs.otherSubjects;
 	});
 
 	rw.recv_subjects("*", function(msg) {

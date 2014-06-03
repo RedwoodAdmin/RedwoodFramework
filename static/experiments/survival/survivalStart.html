@@ -56,7 +56,52 @@
 		<hr style="margin-top:20px;"/>
 		<div class="col-lg-12" id="footer">
 			<div class="row">
-				<div id="group-info-row" class="col-lg-4"></div>
+				<div ng-show="started" class="col-lg-4">
+					<p>Current period:</p>
+					<table class="table table-bordered table-condensed">
+						<tr>
+							<th>Participant</th>
+							<th>Barrier</th>
+							<th>Withdrawals</th>
+							<th></th>
+						</tr>
+						<tr class="info">
+							<td>{{subject[user_id].alias}}</td>
+							<td>{{(angular.isNullOrUndefined(periodData.barrier) ? "?" : periodData.barrier)}}</td>
+							<td>{{periodData.points}}</td>
+							<td style="width:6em;"><span class="text-danger" ng-show="periodData.bankrupt">bankrupt</span></td>
+						</tr>
+						<tr ng-show="config.show_others" ng-repeat="s in otherSubjects">
+							<td>{{s.alias}}</td>
+							<td>{{(angular.isNullOrUndefined(s.get('barrier')) ? '?' : s.get('barrier'))}}</td>
+							<td>{{s.points}}</td>
+							<td style="width:6em;"><span class="text-danger" ng-show="s.get('bankrupt')">bankrupt</span></td>
+						</tr>
+					</table>
+				</div>
+				<div ng-hide="started" class="col-lg-4">
+					<p>Previous period results:</p>
+					<table class="table table-bordered table-condensed">
+						<tr>
+							<th>Participant</th>
+							<th>Barrier</th>
+							<th>Withdrawals</th>
+							<th></th>
+						</tr>
+						<tr class="info">
+							<td>{{subject[user_id].alias}}</td>
+							<td>{{previousPeriodData.barrier}}</td>
+							<td>{{previousPeriodData.points}}</td>
+							<td style="width:6em;"><span class="text-danger" ng-show="previousPeriodData.bankrupt">bankrupt</span></td>
+						</tr>
+						<tr ng-show="config.show_others" ng-repeat="s in otherSubjectsPrevData">
+							<td>{{s.alias}}</td>
+							<td>{{(angular.isNullOrUndefined(s.barrier) ? '?' : s.barrier)}}</td>
+							<td>{{s.points}}</td>
+							<td style="width:6em;"><span class="text-danger" ng-show="s.bankrupt">bankrupt</span></td>
+						</tr>
+					</table>
+				</div>
 				<div class="col-lg-2"></div>
 				<div id="statistical-data-row" class="col-lg-6"></div>
 			</div>

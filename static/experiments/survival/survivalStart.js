@@ -98,8 +98,8 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 			if(rs.period > 1 && !$scope.ready){ //Display barrier from previous period as reference
 				dataset.push({
 					data: [
-						[last_x, rs.subject[rs.user_id].get("period_data").barrier],
-						[opts.xaxis.max, rs.subject[rs.user_id].get("period_data").barrier]
+						[last_x, $scope.previousPeriodData.barrier],
+						[opts.xaxis.max, $scope.previousPeriodData.barrier]
 					],
 					dashes: { show: true, lineWidth: 1.5 },
 					color: "grey",
@@ -169,7 +169,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 					ctx.fillStyle = "grey";
 					var o = plot.pointOffset({
 						x: last_x,
-						y: rs.subject[rs.user_id].get("period_data").barrier
+						y: $scope.previousPeriodData.barrier
 					});
 					var s = "previous barrier";
 					var m = ctx.measureText(s);
@@ -190,51 +190,6 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 			deferred.resolve();
 			return deferred.promise;
 		}),
-
-		displayData: function(isPrevious) { //Display the data for the current or previous period
-			Display.clearGroupData();
-			if(isPrevious){
-				$("#group-info-row").append("<p>Previous period results:</p>");
-			} else {
-				$("#group-info-row").append("<p>Current period:</p>");
-			}
-			var table = "<table class='table table-bordered table-condensed'>" +
-				"	<tr>" +
-				"		<th>Participant</th>" +
-				"		<th>Barrier</th>" +
-				"		<th>Withdrawals</th>" +
-				"		<th></th>" +
-				"	</tr>";
-			var member = isPrevious ? rs.subject[rs.user_id].get("period_data") : $scope.periodData;
-			table = table +
-				"	<tr" + " class='info'" + ">" +
-				"		<td>" + rs.subject[rs.user_id].alias + "</td>" +
-				"		<td>" + (angular.isNullOrUndefined(member.barrier) ? "?" : member.barrier) + "</td>" +
-				"		<td>" + member.points + "</td>" +
-				"		<td class='text-danger' style='width:6em;'>" + (member.bankrupt ? "bankrupt" : "") + "</td>" +
-				"	</tr>";
-			if(rs.config.show_others) {
-				for(var user_id in rs.subject){
-					var subject = rs.subject[user_id];
-					if(user_id !== rs.user_id) {
-						var member = isPrevious ? subject.get("period_data") : {barrier: subject.get("barrier"), points: subject.points, bankrupt: subject.get("bankrupt")};
-						table = table +
-							"	<tr>" +
-							"		<td>" + subject.alias + "</td>" +
-							"		<td>" + (angular.isNullOrUndefined(member.barrier) ? "?" : member.barrier) + "</td>" +
-							"		<td>" + member.points + "</td>" +
-							"		<td class='text-danger' style='width:6em;'>" + (member.bankrupt ? "bankrupt" : "") + "</td>" +
-							"	</tr>";
-					}
-				}
-			}
-			table = table + "</table>";
-			$("#group-info-row").append(table);
-		},
-
-		clearGroupData: function() {
-			$("#group-info-row").empty();
-		},
 
 		clearStatisticalData: function() {
 			$("#statistical-data-row").empty();
@@ -316,21 +271,6 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 
 	//Types
 	var Direction = {UP: true, DOWN: false};
-
-	//state
-	var state = {
-		account: [],
-		ymax: 0,
-		withdrawals: [],
-		prevtotal: 0,
-		tickDirections: undefined,
-		periodData: {},
-		previousPeriodData: {},
-		statisticalData: undefined,
-		ticker: undefined,
-		ready: false
-	};
-
 
 	var processTick = function(value) {
 		if (value.withdrawal > 0) {
@@ -421,8 +361,12 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 		};
 
 		if(rs.period > 1) {
-			Display.displayData(true);
-			rs.trigger("barrier", rs.subject[rs.user_id].get("period_data").barrier);
+			$scope.previousPeriodData = rs.subject[rs.user_id].get("period_data");
+			$scope.otherSubjectsPrevData = rs.otherSubjects.map(function(subject) {
+				return angular.extend(subject.get("period_data"), {alias: subject.alias});
+			});
+			//Display.displayData(true);
+			rs.trigger("barrier", $scope.previousPeriodData.barrier);
 			if(rs.config.show_historical) {
 				Display.displayStatisticalData();
 			}
@@ -440,8 +384,9 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 		rs.gate('ready', function() { //Once all users have reached this point
 			if(rs.user_id == rs.subjects[0].user_id || !rs.config.same_draws){ //Decide whether to generate own draws
 				$scope.tickDirections = generateTickDirections();
+				$scope.started = true;
 				rs.send("tick_directions", $scope.tickDirections);
-				Display.displayData(false);
+				//Display.displayData(false);
 				var withdrawal = Math.max(rs.config.initial - $scope.periodData.barrier, 0);
 				processTick({ x: 0, y: rs.config.initial - withdrawal, withdrawal: withdrawal });
 				rs.timeout(function() {
@@ -457,7 +402,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 			for(var i = 0; i < value.length; i++){ //Save draws
 				$scope.tickDirections.push(value[i]);
 			}
-			Display.displayData(false);
+			//Display.displayData(false);
 			var withdrawal = Math.max(rs.config.initial - $scope.periodData.barrier, 0);
 			processTick({ x: 0, y: rs.config.initial - withdrawal, withdrawal: withdrawal });
 			rs.timeout(function() { //Start experiment
@@ -551,7 +496,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 		if(account) {
 			Display.replot();
 			if($scope.tickDirections !== undefined) {
-				Display.displayData(false);
+				//Display.displayData(false);
 			}
 		}
 	}, true);
