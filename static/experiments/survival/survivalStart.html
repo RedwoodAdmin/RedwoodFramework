@@ -29,7 +29,7 @@
 			</div>
 			<div class="row">
 				<div id="input-container" class="col-lg-12">
-					<button id="ready-button" class="btn btn-success" disabled="disabled">Ready</button>
+					<button id="ready-button" class="btn btn-success" ng-disabled="!inputsEnabled" ng-click="ready()" animate-toggle-class="{cssClass: 'button-flash', delay: 500, disabled: !inputsEnabled}">Ready</button>
 					<button id="next-period-button" class="btn" style="display:none;" data-next-period data-auto="5">Next Period</button>
 				</div>
 			</div>

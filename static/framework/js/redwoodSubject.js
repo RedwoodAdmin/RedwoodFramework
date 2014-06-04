@@ -128,9 +128,9 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 	};
 
 	rs.on("__set_points__", function(value) {
-		rs.subject[rs.user_id].accumulated_points += (value.points - rs.points);
-		rs.accumulated_points = rs.subject[rs.user_id].accumulated_points;
-		rs.subject[rs.user_id].points = value.points;
+		rs.self.accumulated_points += (value.points - rs.points);
+		rs.accumulated_points = rs.self.accumulated_points;
+		rs.self.points = value.points;
 		rs.points = value.points;
 
 		$rootScope.totalPoints = rs.accumulated_points;
@@ -340,6 +340,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 		rs.subjects.forEach(function(subject) {
 			rs.subject[subject.user_id] = subject;
 		});
+		rs.self = rs.subject[rs.user_id];
 		rs.otherSubjects = rs.subjects.filter(function(subject) {
 			return subject.user_id !== rs.user_id;
 		});
@@ -470,7 +471,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 			for(var i = 0, l = rs.subjects.length; i < l; i++) {
 				rs.subjects[i].accumulated_points += (rs.subjects[i].get("_accumulated_points") ? rs.subjects[i].get("_accumulated_points") : 0);
 			}
-			rs.accumulated_points = rs.subject[rs.user_id].accumulated_points;
+			rs.accumulated_points = rs.self.accumulated_points;
 			$rootScope.totalPoints = rs.accumulated_points;
 
 			if(rs._pause[rs.period]) {

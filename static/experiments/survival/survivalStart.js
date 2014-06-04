@@ -1,10 +1,21 @@
 Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManager', "RedwoodSubject", function($q, $rootScope, $scope, AsyncCallManager, rs) {
 
-	var Display = { //Display controller
+	$scope.inputsEnabled = false;
+
+	$scope.ready = function() {
+		if ($scope.inputsEnabled && $scope.periodData.barrier !== undefined) {
+			$scope.inputsEnabled = false;
+			rs.trigger("ready");
+		} else {
+			alert("Set barrier");
+		}
+	};
+
+	var Display = {
 		initialize: function() {
 			Display.mousedown = false;
-			$("#plot").bind("plothover", function (event, pos, item) { //To drag barrier when mouse button is down
-				if (Display.mousedown && !$scope.ready) {
+			$("#plot").bind("plothover", function (event, pos, item) {
+				if (Display.mousedown && $scope.inputsEnabled) {
 					if(rs.config.grid) {
 						$scope.periodData.barrier = Math.max(0, Math.round(pos.y / rs.config.grid) * rs.config.grid);
 					} else {
@@ -13,33 +24,26 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 					Display.replot();
 				}
 			});
-			$("#plot").bind("mousedown", function (event) { //Check if barrier should be moved
+			$("#plot").bind("mousedown", function (event) {
 				Display.mousedown = true;
 			});
-			$("#plot").bind("mouseup", function (event) { //Stop moving barrier
+			$("#plot").bind("mouseup", function (event) {
 				if(Display.mousedown){
 					Display.mousedown = false;
-					if(!$scope.ready && $scope.periodData.barrier !== undefined)
+					if($scope.inputsEnabled && $scope.periodData.barrier !== undefined)
 						rs.trigger("barrier", $scope.periodData.barrier); //Set barrier at current mouse position
 				}
 			});
 			$("#plot").bind("mouseout", function (event) { //Mouse leaving plot area is treated the same as releasing the mouse button - stop moving barrier
 				if(Display.mousedown){
 					Display.mousedown = false;
-					if(!$scope.ready && $scope.periodData.barrier !== undefined)
+					if($scope.inputsEnabled && $scope.periodData.barrier !== undefined)
 						rs.trigger("barrier", $scope.periodData.barrier); //Set barrier at current mouse position
-				}
-			});
-			$("#ready-button").click(function () {
-				if (!$scope.ready && $scope.periodData.barrier !== undefined) { //Check that barrier has been set
-					rs.trigger("ready");
-				}else{
-					alert("Set barrier");
 				}
 			});
 
 			rs.on("ready", function(value){
-				$("#ready-button").attr("disabled", "disabled");
+				$scope.inputsEnabled = false;
 			});
 
 			if(rs.config.show_params) {
@@ -48,8 +52,6 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 				$("#p_end").text(($scope.p_end * 100).toFixed(2) + "%");
 				$("#param-display").show();
 			}
-
-			Display.flashReadyButton();
 		},
 
 		replot: AsyncCallManager.limitCallRateTo(function() { //Redraw plot area
@@ -95,7 +97,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 				color: $scope.periodData.bankrupt ? "rgb(255,20,0)" : "rgb(0,100,255)",
 				hoverable: false
 			});
-			if(rs.period > 1 && !$scope.ready){ //Display barrier from previous period as reference
+			if(rs.period > 1 && $scope.inputsEnabled){ //Display barrier from previous period as reference
 				dataset.push({
 					data: [
 						[last_x, $scope.previousPeriodData.barrier],
@@ -165,7 +167,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 					ctx.fillStyle = "green";
 					ctx.fillText(s, x, y );
 				}
-				if(rs.period > 1 && !$scope.ready){
+				if(rs.period > 1 && $scope.inputsEnabled){
 					ctx.fillStyle = "grey";
 					var o = plot.pointOffset({
 						x: last_x,
@@ -177,7 +179,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 				}
 				if (last_y <= 0) {
 					$("#plot-text").html("<span class='text-danger'>Bankrupt</span>");
-				} else if (!$scope.ready) {
+				} else if ($scope.inputsEnabled) {
 					$("#plot-text").html("<span class='text-success'>Set Barrier</span>");
 				} else {
 					$("#plot-text").html("&nbsp");
@@ -222,7 +224,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 					"	</tr>";
 
 				table = table + "<tr class='info'>";
-				table = table + "	<td>" + rs.subject[rs.user_id].alias + "</td>";
+				table = table + "	<td>" + rs.self.alias + "</td>";
 				table = table + "	<td>" + Math.round(data.barriers[rs.user_id].sum() / data.barriers[rs.user_id].length) + "</td>";
 				table = table + "	<td>" + rs.accumulated_points + "</td>";
 				table = table + "	<td>" + Math.round(data.bankruptcy[rs.user_id].sum() * 100 / data.bankruptcy[rs.user_id].length) + "%</td>";
@@ -243,29 +245,6 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 				table = table + "</table>";
 				$("#statistical-data-row").append(table);
 			}
-		},
-
-		flashReadyButton: function() {
-			var faded = false;
-			var mouseOver = false;
-			var temp = $("#ready-button").css("background-image");
-			setInterval(function(){
-				if(!mouseOver && !$scope.ready) {
-					if(faded) {
-						$("#ready-button").css("background-image", temp);
-					} else {
-						$("#ready-button").css("background-image", "linear-gradient(rgb(142, 195, 142), rgb(142, 195, 142))");
-					}
-					faded = !faded;
-				}
-			}, 500);
-			$("#ready-button").on("mouseover", function (event) {
-				mouseOver = true;
-				$("#ready-button").css("background-image", temp);
-			});
-			$("#ready-button").on("mouseout", function (event) {
-				mouseOver = false;
-			});
 		}
 	};
 
@@ -313,47 +292,23 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 	});
 
 	rs.on_load(function () {
-		//Setup aliases
-		rs.subject[rs.user_id].alias = 'A (You)';
-		var subjects = rs.subjects.filter(function(subject) {
-			return subject.user_id !== rs.user_id;
-		});
+
+		rs.self.alias = 'A (You)';
 		var alias = 'B';
-		for(var i = 0, l = subjects.length; i < l; i++) {
-			subjects[i].alias = alias;
+		rs.otherSubjects.forEach(function(subject) {
+			subject.alias = alias;
 			alias = String.fromCharCode(alias.charCodeAt(0) + 1);
-		}
+		});
 
-		//Initialize state
-		if($.isArray(rs.config.ticks)) {
-			$scope.ticks = rs.config.ticks[rs.user_id - 1];
-		} else {
-			$scope.ticks = rs.config.ticks;
-		}
-
-		if($.isArray(rs.config.p_up)) {
-			$scope.p_up = rs.config.p_up[rs.user_id - 1];
-		} else {
-			$scope.p_up = rs.config.p_up;
-		}
-
-		if($.isArray(rs.config.up_size)) {
-			$scope.up_size = rs.config.up_size[rs.user_id - 1];
-		} else {
-			$scope.up_size = rs.config.up_size;
-		}
-
-		if($.isArray(rs.config.p_end)) {
-			$scope.p_end = rs.config.p_end[rs.user_id - 1];
-		} else {
-			$scope.p_end = rs.config.p_end;
-		}
+		$scope.ticks = $.isArray(rs.config.ticks) ? rs.config.ticks[rs.user_id - 1] : rs.config.ticks;
+		$scope.p_up = $.isArray(rs.config.p_up) ? rs.config.p_up[rs.user_id - 1] : rs.config.p_up;
+		$scope.up_size = $.isArray(rs.config.up_size) ? rs.config.up_size[rs.user_id - 1] : rs.config.up_size;
+		$scope.p_end = $.isArray(rs.config.p_end) ? rs.config.p_end[rs.user_id - 1] : rs.config.p_end;
 
 		$scope.account = [[0, rs.config.initial]];
 		$scope.withdrawals = [];
 		$scope.ymax = rs.config.initial_ymax;
 
-		//Initialize periodData
 		$scope.periodData = {
 			barrier: undefined,
 			bankrupt: false,
@@ -361,26 +316,23 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 		};
 
 		if(rs.period > 1) {
-			$scope.previousPeriodData = rs.subject[rs.user_id].get("period_data");
+			$scope.previousPeriodData = rs.self.get("period_data");
 			$scope.otherSubjectsPrevData = rs.otherSubjects.map(function(subject) {
 				return angular.extend(subject.get("period_data"), {alias: subject.alias});
 			});
-			//Display.displayData(true);
+
 			rs.trigger("barrier", $scope.previousPeriodData.barrier);
 			if(rs.config.show_historical) {
 				Display.displayStatisticalData();
 			}
-			$("#ready-button").attr("disabled", null);
-		} else {
-			$("#ready-button").attr("disabled", null);
 		}
 
 		Display.initialize();
+		$scope.inputsEnabled = true;
 
 	});
 
 	rs.on("ready", function(value){
-		$scope.ready = true;
 		rs.gate('ready', function() { //Once all users have reached this point
 			if(rs.user_id == rs.subjects[0].user_id || !rs.config.same_draws){ //Decide whether to generate own draws
 				$scope.tickDirections = generateTickDirections();
@@ -424,7 +376,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 				var c = rs.config.earnings_abc[2];
 			}
 			var earnings = a*Math.max(Math.pow(rs.points, b) - c, 0); //a*max( (withdrawals^b)-c, 0)
-			var points_by_period = rs.subject[rs.user_id].get("points_by_period");
+			var points_by_period = rs.self.get("points_by_period");
 			var total_earnings = (points_by_period && points_by_period.total_earnings ? points_by_period.total_earnings + earnings: earnings);
 			rs.set("points_by_period", {period: rs.period, points: rs.points, earnings: earnings, total_earnings: total_earnings});
 			rs.send("__set_show_up_fee__", {show_up_fee: total_earnings});

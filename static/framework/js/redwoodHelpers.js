@@ -104,29 +104,46 @@ Redwood.factory("Helpers", function() {
 });
 
 Redwood
-	.directive("animateToggleClass", ['$timeout', function($timeout) {
+	.directive("animateToggleClass", ['$parse', '$timeout', function($parse, $timeout) {
 		return {
+			scope: {
+				options: '=animateToggleClass'
+			},
 			link: function($scope, element, attrs) {
-				var options = attrs.animateToggleClass;
-				var enabled = false;
 				var timeout;
 
 				function animate() {
-					element.toggleClass(options.class);
-					timeout = $timeout(animate, options.delay);
+					element.toggleClass($scope.options.cssClass);
+					timeout = $timeout(animate, $scope.options.delay);
 				}
 
-				$scope.$watch(options.enabled.toString(), function(value) {
-					if(value && !enabled) {
-						element.addClass(options.class);
-						timeout = $timeout(animate, options.delay);
-					} else if (enabled && !value) {
-						$timeout.cancel(timeout);
-						element.removeClass(options.class);
+				function start() {
+					$timeout.cancel(timeout);
+					timeout = $timeout(animate, $scope.options.delay);
+				}
+
+				function stop() {
+					$timeout.cancel(timeout);
+					element.removeClass($scope.options.cssClass);
+				}
+
+				$scope.$watch('options.disabled', function(value) {
+					if(value) {
+						stop();
+					} else {
+						start();
 					}
-					enabled = value;
 				});
 
+				element.on('mouseover', function() {
+					stop();
+				});
+
+				element.on('mouseout', function() {
+					if(!$scope.options.disabled) {
+						start();
+					}
+				});
 			}
 		};
 	}])
