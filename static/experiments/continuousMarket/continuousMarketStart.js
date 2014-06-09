@@ -7,6 +7,8 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 
 	$scope.plotModel = {
 		config: {},
+		bidProjections: [],
+		askProjections: [],
 		hover: false,
 		allocation: false
 	};
@@ -322,6 +324,39 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 			.map(function(d) {
 				return offers[d];
 			});
+
+		if($scope.config.canSell) {
+			$scope.plotModel.bidProjections = $scope.bids
+				.filter(function(bid) {
+					return bid.user_id != rs.user_id;
+				})
+				.map(function(bid) {
+					return {
+						x: $scope.allocation.x - bid.qty,
+						y: $scope.allocation.y + (bid.price * bid.qty)
+					};
+				})
+				.sort(function(a, b) {
+					return a.y - b.y;
+				});
+		}
+
+		if($scope.config.canBuy) {
+			$scope.plotModel.askProjections = $scope.asks
+				.filter(function(ask) {
+					return ask.user_id != rs.user_id;
+				})
+				.map(function(ask) {
+					return {
+						x: $scope.allocation.x - ask.qty,
+						y: $scope.allocation.y + (ask.price * ask.qty)
+					};
+				})
+				.sort(function(a, b) {
+					return a.y - b.y;
+				});
+		}
+
 	}, true /*Deep watch*/);
 
 	$scope.$watch("allocation", function(allocation) {
@@ -336,6 +371,8 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 		replace: true,
 		scope: {
 			config: '=',
+			bidProjections: '=',
+			askProjections: '=',
 			allocation: '=',
 			hover: '='
 		},
@@ -413,6 +450,9 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				.attr("r", 5);
 			var hoverCurve = d3.rw.indifferenceCurve();
 
+			var bidProjectionContainer = baseLayer.append("g")
+				.attr("class", "bid-projection-container");
+
 			plot.on("click", function() {
 				var position = d3.mouse(this);
 				var x = scales.offsetToX(position[0]);
@@ -481,6 +521,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				initialize();
 
 				$scope.$watch("config", redrawAll, true);
+				$scope.$watch("bidProjections", redrawBidProjections, true);
 				$scope.$watch("allocation", redrawAllocation, true);
 				$scope.$watch("hover", redrawHoverCurve, true);
 			});
@@ -629,6 +670,8 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 					);
 				});
 
+				redrawBidProjections($scope.bidProjections);
+
 				allocationCurve.grid(utilityGrid)
 					.xScale(scales.xIndexToOffset)
 					.yScale(scales.yIndexToOffset);
@@ -661,6 +704,49 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				allocationContainer.call(allocationCurve.value(utility));
 
 				allocationContainer.attr("visibility", "visible");
+			}
+
+			function redrawBidProjections(bidProjections) {
+
+				var bidPoints = bidProjectionContainer.selectAll('.bid-projection-point').data(bidProjections || []);
+
+				bidPoints.enter()
+					.append("circle")
+					.attr("class", "bid-projection-point")
+					.attr("r", 5)
+					.attr("fill", "red");
+
+				bidPoints
+					.attr("cx", function(bid) {
+						return scales.xToOffset(bid.x);
+					})
+					.attr("cy", function(bid) {
+						return scales.yToOffset(bid.y);
+					});
+
+				bidPoints.exit().remove();
+
+				var bidConnectors = bidProjectionContainer.selectAll('.bid-projection-connector').data(bidProjections || []);
+
+				var previous = [scales.xToOffset($scope.allocation.x), scales.yToOffset($scope.allocation.y)];
+				bidConnectors.enter()
+					.append("g")
+					.attr("class", "bid-projection-connector");
+				bidConnectors
+					.each(function(bid) {
+						d3.select(this).selectAll('*').remove();
+						var current = [scales.xToOffset(bid.x), scales.yToOffset(bid.y)];
+						d3.select(this).append("path").data([[angular.copy(previous), current]])
+							.style("fill", "none")
+							.style("stroke", "red")
+							.style("stroke-width", "2")
+							.attr("d", d3.svg.line());
+						previous = current;
+					});
+
+				bidConnectors.exit().remove();
+
+				//redrawAllocation($scope.allocation); //Just to put it back on top.
 			}
 
 			function redrawHoverCurve(hover) {
