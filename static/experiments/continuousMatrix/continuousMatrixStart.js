@@ -48,7 +48,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
 	rs.on("ready", function(value){ //event handler for ready button click
 		$scope.readyEnabled = false;
-		rs.synchronizationBarrier('ready', function() {
+		rs.synchronizationBarrier('ready').then(function() {
 
 			if(rs.config.initial_delay_s > 0) {
 				$scope.tEnableInput = rs.config.initial_delay_s * CLOCK_FREQUENCY; //only enable input after the initial delay period specified in the config

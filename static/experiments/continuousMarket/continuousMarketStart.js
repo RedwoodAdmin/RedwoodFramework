@@ -185,7 +185,7 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		//Begin next round
 		$scope.round++;
 
-		rs.synchronizationBarrier('round-' + $scope.round, function() {
+		rs.synchronizationBarrier('round-' + $scope.round).then(function() {
 
 			$scope.allocation = {x: $scope.Ex, y: $scope.Ey};
 
@@ -197,7 +197,7 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 
 			$scope.roundStartTime = (new Date()).getTime() / 1000;
 			rs.trigger("roundStartTime", $scope.roundStartTime);
-			//rs.timeout(checkTime);
+			rs.timeout(checkTime);
 
 			$scope.inputsEnabled = true;
 		});

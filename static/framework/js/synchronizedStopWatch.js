@@ -16,7 +16,7 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 
 			function executeTick() {
 				if(!latch) {
-					rs.synchronizationBarrier('_tick_' + tick, function() {
+					rs.synchronizationBarrier('_tick_' + tick).then(function() {
 						latch = false;
 						tick++;
 						t = Math.floor(tick / frequency);
