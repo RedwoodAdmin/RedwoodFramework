@@ -185,7 +185,7 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		//Begin next round
 		$scope.round++;
 
-		rs.gate('round-' + $scope.round, function() {
+		rs.synchronizationBarrier('round-' + $scope.round, function() {
 
 			$scope.allocation = {x: $scope.Ex, y: $scope.Ey};
 

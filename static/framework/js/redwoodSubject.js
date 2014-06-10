@@ -371,42 +371,42 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 		}
 	});
 
-	var gates = {};
-	rs.gate = function(gateId, f, subjectIds) {
-		gateId += '_' + rs.period;
-		gates[gateId] = gates[gateId] || {received: []};
+	var barriers = {};
+	rs.synchronizationBarrier = function(barrierId, f, subjectIds) {
+		barrierId += '_' + rs.period;
+		barriers[barrierId] = barriers[barrierId] || {received: []};
 		if(subjectIds) {
-			gates[gateId].subjectIds = subjectIds;
+			barriers[barrierId].subjectIds = subjectIds;
 		}
-		gates[gateId].callback = f;
-		rs.trigger("_at_gate", gateId);
+		barriers[barrierId].callback = f;
+		rs.trigger("_at_barrier", barrierId);
 	};
-	rs.on('_at_gate', function(gateId) {
-		gates[gateId].received.push(rs.user_id);
-		checkGate(gateId);
+	rs.on('_at_barrier', function(barrierId) {
+		barriers[barrierId].received.push(rs.user_id);
+		checkBarrier(barrierId);
 	});
-	rs.recv('_at_gate', function(sender, gateId) {
-		gates[gateId] = gates[gateId] || {received: []};
-		gates[gateId].received.push(sender);
-		checkGate(gateId);
+	rs.recv('_at_barrier', function(sender, barrierId) {
+		barriers[barrierId] = barriers[barrierId] || {received: []};
+		barriers[barrierId].received.push(sender);
+		checkBarrier(barrierId);
 	});
-	function checkGate(gateId) {
-		var gate = gates[gateId];
-		if(gate.subjectIds) {
-			if(gate.subjectIds.some(function(id) {
-				return gate.received.indexOf(id) < 0;
+	function checkBarrier(barrierId) {
+		var barrier = barriers[barrierId];
+		if(barrier.subjectIds) {
+			if(barrier.subjectIds.some(function(id) {
+				return barrier.received.indexOf(id) < 0;
 			})) {
 				return;
 			}
 		} else {
 			if(rs.subjects.some(function(subject) {
-				return gate.received.indexOf(subject.user_id) < 0;
+				return barrier.received.indexOf(subject.user_id) < 0;
 			})) {
 				return;
 			}
 		}
-		gate.callback();
-		delete gates[gateId];
+		barrier.callback();
+		delete barriers[barrierId];
 	}
 
 	/*rs._waits = [];
@@ -456,7 +456,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 
 	rw.on_load(function() {
 		$rootScope.period = rs.period;
-		rs.gate('_on_load', function() {
+		rs.synchronizationBarrier('_on_load', function() {
 
 			if(rs.config && $.isArray(rs.config.groups) && rs.config.groups.length > 0 && $.isArray(rs.config.groups[0])) {
 				for(var i = 0; i < rs.config.groups.length; i++) {

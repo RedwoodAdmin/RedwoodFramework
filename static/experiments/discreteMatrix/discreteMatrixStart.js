@@ -14,7 +14,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 
 		$scope.round = 0;
 
-		rs.gate('on_load', function() {
+		rs.synchronizationBarrier('on_load', function() {
 			rs.trigger("next_round"); //Start first round
 		});
 	});
@@ -38,7 +38,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		$scope.inputsEnabled = false;
 		$scope.selection = value;
 		$scope.action = value;
-		rs.gate('round_' + $scope.round, function() { //Call this function once the specified subjects have reached this point
+		rs.synchronizationBarrier('round_' + $scope.round, function() { //Call this function once the specified subjects have reached this point
 			allocateRewards($scope.action, $scope.partnerAction);
 			rs.trigger("next_round");
 		}, [$scope.partner_id]);
