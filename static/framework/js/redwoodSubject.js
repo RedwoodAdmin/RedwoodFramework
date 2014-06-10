@@ -1,5 +1,5 @@
 
-Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", function($rootScope, $timeout, rw) {
+Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore", function($q, $rootScope, $timeout, rw) {
 
 	var rs = {};
 
@@ -372,14 +372,16 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 	});
 
 	var barriers = {};
-	rs.synchronizationBarrier = function(barrierId, f, subjectIds) {
+	rs.synchronizationBarrier = function(barrierId, subjectIds) {
+		var deferred = $q.defer();
 		barrierId += '_' + rs.period;
 		barriers[barrierId] = barriers[barrierId] || {received: []};
 		if(subjectIds) {
 			barriers[barrierId].subjectIds = subjectIds;
 		}
-		barriers[barrierId].callback = f;
+		barriers[barrierId].deferred = deferred;
 		rs.trigger("_at_barrier", barrierId);
+		return deferred.promise;
 	};
 	rs.on('_at_barrier', function(barrierId) {
 		barriers[barrierId].received.push(rs.user_id);
@@ -405,7 +407,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 				return;
 			}
 		}
-		barrier.callback();
+		barrier.deferred.resolve();
 		delete barriers[barrierId];
 	}
 
@@ -456,7 +458,7 @@ Redwood.factory("RedwoodSubject", ["$rootScope", "$timeout", "RedwoodCore", func
 
 	rw.on_load(function() {
 		$rootScope.period = rs.period;
-		rs.synchronizationBarrier('_on_load', function() {
+		rs.synchronizationBarrier('_on_load').then(function() {
 
 			if(rs.config && $.isArray(rs.config.groups) && rs.config.groups.length > 0 && $.isArray(rs.config.groups[0])) {
 				for(var i = 0; i < rs.config.groups.length; i++) {

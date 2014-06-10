@@ -333,7 +333,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 	});
 
 	rs.on("ready", function(value){
-		rs.synchronizationBarrier('ready', function() { //Once all users have reached this point
+		rs.synchronizationBarrier('ready').then(function() { //Once all users have reached this point
 			if(rs.user_id == rs.subjects[0].user_id || !rs.config.same_draws){ //Decide whether to generate own draws
 				$scope.tickDirections = generateTickDirections();
 				$scope.started = true;
@@ -365,7 +365,7 @@ Redwood.controller("SubjectCtrl", ['$q', "$rootScope", "$scope", 'AsyncCallManag
 
 	rs.on("simulation_complete", function (value) { //Simulation is complete
 		$scope.simulation_complete = true;
-		rs.synchronizationBarrier('simulation_complete', function() { //When all user's reach this point
+		rs.synchronizationBarrier('simulation_complete').then(function() { //When all user's reach this point
 			if($.isArray(rs.config.earnings_abc[0])) {
 				var a = rs.config.earnings_abc[rs.user_id - 1][0];
 				var b = rs.config.earnings_abc[rs.user_id - 1][1];
