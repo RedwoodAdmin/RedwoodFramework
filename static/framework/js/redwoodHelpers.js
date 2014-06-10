@@ -103,46 +103,88 @@ Redwood.factory("Helpers", function() {
 
 });
 
-Redwood.directive("animateToggleClass", ['$timeout', function($timeout) {
-	return {
-		link: function($scope, element, attrs) {
-			var options = attrs.animateToggleClass;
-			var enabled = false;
-			var timeout;
+Redwood
+	.directive("animateToggleClass", ['$parse', '$timeout', function($parse, $timeout) {
+		return {
+			scope: {
+				options: '=animateToggleClass'
+			},
+			link: function($scope, element, attrs) {
+				var timeout;
 
-			function animate() {
-				element.toggleClass(options.class);
-				timeout = $timeout(animate, options.delay);
-			}
-
-			$scope.$watch(options.enabled.toString(), function(value) {
-				if(value && !enabled) {
-					element.addClass(options.class);
-					timeout = $timeout(animate, options.delay);
-				} else if (enabled && !value) {
-					$timeout.cancel(timeout);
-					element.removeClass(options.class);
+				function animate() {
+					element.toggleClass($scope.options.cssClass);
+					timeout = $timeout(animate, $scope.options.delay);
 				}
-				enabled = value;
-			});
 
-		}
-	};
-}]);
+				function start() {
+					$timeout.cancel(timeout);
+					timeout = $timeout(animate, $scope.options.delay);
+				}
 
-Redwood.directive("keyPress", function() {
-	return {
-		restrict: 'E',
-		link: function($scope, element, attrs) {
-			if(attrs.keyCode && attrs.callback) {
-				$(document).keydown(function(evt) {
-					if(evt.keyCode == attrs.keyCode) {
-						$scope.$parent.$apply(function() {
-							$scope.$parent.$eval(attrs.callback);
-						});
+				function stop() {
+					$timeout.cancel(timeout);
+					element.removeClass($scope.options.cssClass);
+				}
+
+				$scope.$watch('options.disabled', function(value) {
+					if(value) {
+						stop();
+					} else {
+						start();
+					}
+				});
+
+				element.on('mouseover', function() {
+					stop();
+				});
+
+				element.on('mouseout', function() {
+					if(!$scope.options.disabled) {
+						start();
 					}
 				});
 			}
-		}
-	};
-});
+		};
+	}])
+
+	.directive("keyPress", function() {
+		return {
+			restrict: 'E',
+			link: function($scope, element, attrs) {
+				if(attrs.keyCode && attrs.callback) {
+					$(document).keydown(function(evt) {
+						if(evt.keyCode == attrs.keyCode) {
+							$scope.$parent.$apply(function() {
+								$scope.$parent.$eval(attrs.callback);
+							});
+						}
+					});
+				}
+			}
+		};
+	});
+
+
+Redwood
+	.filter("abs", function() {
+		return function(value) {
+			if(!value) return value;
+			return Math.abs(value);
+		};
+	})
+
+	.filter("timeString", function() {
+		return function(timeRemaining) {
+			timeRemaining = timeRemaining || 0;
+			var minutes = Math.floor(timeRemaining / 60).toString();
+			if(minutes.length < 2) {
+				minutes = "0" + minutes;
+			}
+			var seconds = Math.floor(timeRemaining - (minutes * 60)).toString();
+			if(seconds.length < 2) {
+				seconds = "0" + seconds;
+			}
+			return minutes + ":" + seconds;
+		};
+	});

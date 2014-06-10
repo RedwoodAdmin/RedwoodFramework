@@ -1,0 +1,80 @@
+
+<div class="navbar navbar-fixed-top container">
+	<div class="navbar navbar-default" style="margin-bottom: 0;">
+		<div class="navbar-brand" href="#">Economics Experiment</div>
+		<ul class="nav navbar-nav">
+			<li class="active">
+				<a>User ID: <span>{{$root.user_id}}</span></a>
+			</li>
+		</ul>
+		<div class="navbar-right">
+			<div class="navbar-text">Period: <span>{{$root.period}}</span></div>
+			<div class="navbar-text">Total Reward: <span>{{$root.totalPoints | number:2}}</span></div>
+		</div>
+	</div>
+</div>
+
+<div class="container">
+	<div class="row">
+		<div class="col-lg-9"></div>
+		<div class="col-lg-3">
+			<div id="legend" class="pull-right">
+				<div>
+					<img ng-src="/static/experiments/continuousMatrix/img/LegendGrey.png"></img>
+					<span>You</span>
+				</div>
+				<div>
+					<img ng-src="/static/experiments/continuousMatrix/img/LegendBlack.png"></img>
+					<span>Opponent</span>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="row">
+		<div class="col-lg-3">
+			<table id="input-matrix" class="table table-bordered table-condensed">
+				<tr style="height:40px;">
+					<td></td>
+					<td ng-class="{'selected': prevPartnerAction == 1}">A</td>
+					<td ng-class="{'selected': prevPartnerAction == 2}">B</td>
+				</tr>
+				<tr style="height:40px;">
+					<td class="input-cell" ng-class="{'selected': action == 1}">
+						<span class="disabled" ng-hide="actionsEnabled">A</span>
+						<a ng-click="onAction(1)" ng-show="actionsEnabled" class="input-link" href>A</a>
+					</td>
+					<td ng-class="{'selected': prevPartnerAction == 1 || action == 1, 'double-selected': prevPartnerAction == 1 && action == 1}">
+						<strong>{{matrix[0][0][0]}}</strong>, <span>{{matrix[0][0][1]}}</span>
+					</td>
+					<td ng-class="{'selected': prevPartnerAction == 2 || action == 1, 'double-selected': prevPartnerAction == 2 && action == 1}">
+						<strong>{{matrix[0][1][0]}}</strong>, <span>{{matrix[0][1][1]}}</span>
+					</td>
+				</tr>
+				<tr style="height:40px;">
+					<td class="input-cell" ng-class="{'selected': action == 2}">
+						<span class="disabled" ng-hide="actionsEnabled">B</span>
+						<a ng-click="onAction(2)" ng-show="actionsEnabled" class="input-link" href>B</a>
+					</td>
+					<td ng-class="{'selected': prevPartnerAction == 1 || action == 2, 'double-selected': prevPartnerAction == 1 && action == 2}">
+						<strong>{{matrix[1][0][0]}}</strong>, <span>{{matrix[1][0][1]}}</span>
+					</td>
+					<td ng-class="{'selected': prevPartnerAction == 2 || action == 2, 'double-selected': prevPartnerAction == 2 && action == 2}">
+						<strong>{{matrix[1][1][0]}}</strong>, <span>{{matrix[1][1][1]}}</span>
+					</td>
+				</tr>
+			</table>
+			<div>
+				<span ng-show="inputCountdown">{{inputCountdown | timeString}}</span>
+			</div>
+			<hr/>
+			<div>
+				<button ng-click="ready()" ng-disabled="!readyEnabled" class="btn btn-success">Ready</button>
+			</div>
+		</div>
+		<div class="col-lg-9">
+			<div>
+				<div id="plot" plot></div>
+			</div>
+		</div>
+	</div>
+</div>
