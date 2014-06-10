@@ -16,7 +16,7 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 
 			function executeTick() {
 				if(!latch) {
-					rs.gate('_tick_' + tick, function() {
+					rs.synchronizationBarrier('_tick_' + tick, function() {
 						latch = false;
 						tick++;
 						t = Math.floor(tick / frequency);
@@ -41,8 +41,8 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 				}
 			}
 
-			rs.recv("_at_gate", function(sender, gateId) {
-				if(rs.is_realtime && gateId == '_tick_' + tick) {
+			rs.recv("_at_barrier", function(sender, barrierId) {
+				if(rs.is_realtime && barrierId == '_tick_' + tick) {
 					$timeout.cancel(timeout);
 					executeTick();
 				}
