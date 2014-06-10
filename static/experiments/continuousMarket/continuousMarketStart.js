@@ -353,7 +353,7 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 					};
 				})
 				.sort(function(a, b) {
-					return a.y - b.y;
+					return b.y - a.y;
 				});
 		}
 
@@ -396,25 +396,35 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 
 			var plotMargin = { top: 10, right: 10, bottom: 40, left: 40 };
 
-			var plot = svg.append("g")
-				.attr("transform", "translate(" + plotMargin.left + "," + plotMargin.top + ")");
-
 			var plotWidth = svgWidth - plotMargin.left - plotMargin.right;
 			var plotHeight = svgHeight - plotMargin.bottom - plotMargin.top;
+
+			svg.append("defs").append("clipPath")
+				.attr("id", "plotAreaClip")
+				.append("rect")
+				.attr("x", "0")
+				.attr("y", "0")
+				.attr("width", plotWidth)
+				.attr("height", plotHeight);
+
+			var plot = svg.append("g")
+				.attr("transform", "translate(" + plotMargin.left + "," + plotMargin.top + ")")
+				.attr("clip-path", "url(#plotAreaClip)");
 
 			var baseLayer = plot.append("g")
 				.style("cursor", "pointer");
 
 			var heatMapContainer = baseLayer.append("g");
 
-			var xAxisContainer = plot.append("g")
-				.attr("transform", "translate(0," + (plotHeight) + ")")
-				.attr("class", "axis");
+			var xAxisContainer = svg.append("g")
+				.attr("class", "axis")
+				.attr("transform", "translate(" + (plotMargin.left) + ", " + (plotMargin.top + plotHeight) + ")");
 			var xAxis = d3.svg.axis()
 				.outerTickSize(5);
 
-			var yAxisContainer = plot.append("g")
-				.attr("class", "axis");
+			var yAxisContainer = svg.append("g")
+				.attr("class", "axis")
+				.attr("transform", "translate(" + plotMargin.left + ", " + plotMargin.top + ")");
 			var yAxis = d3.svg.axis()
 				.orient("left")
 				.outerTickSize(5);
@@ -431,6 +441,11 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				.attr("y", 10)
 				.attr("x", -((plotHeight / 2) + plotMargin.top))
 				.text("[ Y ]");
+
+			var bidProjectionContainer = baseLayer.append("g")
+				.attr("class", "bid-projection-container");
+			var askProjectionContainer = baseLayer.append("g")
+				.attr("class", "ask-projection-container");
 
 			var allocationContainer = baseLayer.append("g")
 				.attr("class", "allocation-container");
@@ -449,9 +464,6 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				.attr("class", "hover-point")
 				.attr("r", 5);
 			var hoverCurve = d3.rw.indifferenceCurve();
-
-			var bidProjectionContainer = baseLayer.append("g")
-				.attr("class", "bid-projection-container");
 
 			plot.on("click", function() {
 				var position = d3.mouse(this);
@@ -521,7 +533,12 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				initialize();
 
 				$scope.$watch("config", redrawAll, true);
-				$scope.$watch("bidProjections", redrawBidProjections, true);
+				$scope.$watch("bidProjections", function(projections) {
+					redrawProjections(projections, "bid");
+				}, true);
+				$scope.$watch("askProjections", function(projections) {
+					redrawProjections(projections, "ask");
+				}, true);
 				$scope.$watch("allocation", redrawAllocation, true);
 				$scope.$watch("hover", redrawHoverCurve, true);
 			});
@@ -670,7 +687,8 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 					);
 				});
 
-				redrawBidProjections($scope.bidProjections);
+				redrawProjections($scope.bidProjections, "bid");
+				redrawProjections($scope.askProjections, "ask");
 
 				allocationCurve.grid(utilityGrid)
 					.xScale(scales.xIndexToOffset)
@@ -706,47 +724,47 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				allocationContainer.attr("visibility", "visible");
 			}
 
-			function redrawBidProjections(bidProjections) {
+			function redrawProjections(projections, type) {
 
-				var bidPoints = bidProjectionContainer.selectAll('.bid-projection-point').data(bidProjections || []);
+				var container = type === "bid" ? bidProjectionContainer : askProjectionContainer;
+				var color = type === "bid" ? "red" : "blue";
+				var points = container.selectAll('.projection-point').data(projections || []);
 
-				bidPoints.enter()
+				points.enter()
 					.append("circle")
-					.attr("class", "bid-projection-point")
+					.attr("class", "projection-point")
 					.attr("r", 5)
-					.attr("fill", "red");
+					.attr("fill", color);
 
-				bidPoints
-					.attr("cx", function(bid) {
-						return scales.xToOffset(bid.x);
+				points
+					.attr("cx", function(projection) {
+						return scales.xToOffset(projection.x);
 					})
-					.attr("cy", function(bid) {
-						return scales.yToOffset(bid.y);
+					.attr("cy", function(projection) {
+						return scales.yToOffset(projection.y);
 					});
 
-				bidPoints.exit().remove();
+				points.exit().remove();
 
-				var bidConnectors = bidProjectionContainer.selectAll('.bid-projection-connector').data(bidProjections || []);
+				var connectors = container.selectAll('.projection-connector').data(projections || []);
 
 				var previous = [scales.xToOffset($scope.allocation.x), scales.yToOffset($scope.allocation.y)];
-				bidConnectors.enter()
+				connectors.enter()
 					.append("g")
-					.attr("class", "bid-projection-connector");
-				bidConnectors
-					.each(function(bid) {
+					.attr("class", "projection-connector");
+				connectors
+					.each(function(projection) {
 						d3.select(this).selectAll('*').remove();
-						var current = [scales.xToOffset(bid.x), scales.yToOffset(bid.y)];
+						var current = [scales.xToOffset(projection.x), scales.yToOffset(projection.y)];
 						d3.select(this).append("path").data([[angular.copy(previous), current]])
 							.style("fill", "none")
-							.style("stroke", "red")
+							.style("stroke", color)
 							.style("stroke-width", "2")
 							.attr("d", d3.svg.line());
 						previous = current;
 					});
 
-				bidConnectors.exit().remove();
-
-				//redrawAllocation($scope.allocation); //Just to put it back on top.
+				connectors.exit().remove();
 			}
 
 			function redrawHoverCurve(hover) {
