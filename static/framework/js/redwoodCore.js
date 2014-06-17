@@ -171,7 +171,7 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 			var queued = rw.__send_queue__[i];
 			var msg = rw.convertToMessage(queued.key, queued.value, queued.args);
 			var id = getMsgId(msg);
-			if(sendCounts[id] > recvCounts[id]) {
+			if(sendCounts[id] > (recvCounts[id] || 0)) {
 				sendStack.push(queued);
 				sendCounts[id]--;
 			}
