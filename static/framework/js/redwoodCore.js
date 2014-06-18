@@ -4,7 +4,7 @@ var LOG_MESSAGES = true;
 var Redwood = angular.module("Redwood", []);
 
 Redwood.run(["$rootScope", function($rootScope) {
-	$("body").append(angular.element("<error-modal>"));
+	$("body").append(angular.element('<message-modal show="$root.messageModal.show" header="$root.messageModal.header" content="$root.messageModal.content" footer="$root.messageModal.footer" invisible="$root.messageModal.invisible">'));
 }]);
 
 Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeout", "Helpers", function($compile, $controller, $rootScope, $timeout, Helpers) {
@@ -136,8 +136,10 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 		};
 	};
 
+	var connectionRetry = '';
 	rw.__retry_connect__ = function(t) {
-		$rootScope.connectionRetry = t;
+		connectionRetry = t;
+		connectionModal.footer = 'Retrying connection in ' + connectionRetry;
 		if (t === 0) {
 			rw.__connect__();
 		} else {
@@ -423,43 +425,89 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 		rw.send(rw.KEY.__set_page__, { page: page }, { sender: (user_id || rw.user_id), state_update: true });
 	};
 
+	var connectionModal = {
+		header: "Problem Connecting to Redwood",
+		content: "Unable to connect to the redwood message router. Either the router is down, or a firewall is preventing the connection.",
+		footer: "Retrying connection in " + connectionRetry
+	};
+
+	rw.recv(rw.KEY.__router_status__, function(msg) {
+		if(msg.Value.connected) {
+			$rootScope.$emit('messageModal', 'connection', false);
+		} else {
+			$rootScope.$emit('messageModal', 'connection', connectionModal);
+		}
+	});
+
+	var messageModalStack = [];
+	var messageModals = {};
+	$rootScope.$on('messageModal', function(event, key, model) {
+		if(model) {
+			messageModalStack.push(key);
+			messageModals[key] = model;
+			model.invisible = !!model.invisible;
+			$rootScope.messageModal = model;
+			model.show = true;
+		} else if(messageModals[key]){
+			var invisible = messageModals[key].invisible;
+			delete messageModals[key];
+			messageModalStack = messageModalStack.filter(function(key) {
+				return messageModals[key];
+			});
+			if(messageModalStack.length) {
+				$rootScope.messageModal = messageModals[messageModalStack[messageModalStack.length - 1]];
+			} else {
+				$rootScope.messageModal = {show: false, invisible: invisible};
+			}
+		}
+	});
+
 	rw.__connect__();
 
 	return rw;
 
 }]);
 
-Redwood.directive("errorModal", ['RedwoodCore', function(rw) {
-	return {
-		restrict: 'E',
-		replace: true,
-		template: "\
-			<div id='error-modal' class='modal fade'>\
-				<div class='modal-dialog modal-md'>\
-					<div class='modal-content'>\
-						<div class='modal-header'>\
-							<h3>Problem Connecting to Redwood</h3>\
+Redwood
+	.directive("messageModal", ['RedwoodCore', function(rw) {
+		return {
+			restrict: 'E',
+			replace: true,
+			scope: {
+				show: '=',
+				header: '=',
+				content: '=',
+				footer: '=',
+				invisible: '='
+			},
+			template: '\
+			<div class="modal fade" data-backdrop="static">\
+				<div class="modal-dialog modal-md">\
+					<div class="modal-content">\
+						<div class="modal-header">\
+							<h3>{{header}}</h3>\
 						</div>\
-						<div class='modal-body'>\
-							<p>\
-								Unable to connect to the redwood message router. Either the router\
-								is down, or a firewall is preventing the connection.\
-							</p>\
+						<div class="modal-body">\
+							<p>{{content}}</p>\
 						</div>\
-						<div class='modal-footer'>\
-							<p>Retrying connection in <span>{{$root.connectionRetry}}</span></p>\
+						<div class="modal-footer">\
+							<p>{{footer}}</p>\
 						</div>\
 					</div>\
 				</div>\
-			</div>",
-		link: function($scope, element, attrs) {
-			rw.recv(rw.KEY.__router_status__, function(msg) {
-				if(msg.Value.connected) {
-					element.modal("hide");
-				} else {
-					element.modal("show");
-				}
-			});
-		}
-	};
-}]);
+			</div>',
+			link: function($scope, $elem, attrs) {
+				var dialog = $elem.find('.modal-dialog');
+				$scope.$watch('show', function(show) {
+					$elem.modal(show ? "show" : "hide");
+				});
+				$scope.$watch('invisible', function(invisible) {
+					if(invisible) {
+						dialog.hide();
+					} else {
+						dialog.show();
+					}
+				});
+			}
+		};
+	}]);

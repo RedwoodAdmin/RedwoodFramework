@@ -1,6 +1,20 @@
 
 Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore", function($q, $rootScope, $timeout, rw) {
 
+	var loadingModal = {
+		header: "Loading",
+		content: "Please wait",
+		footer: "",
+		invisible: true
+	};
+	var pausedModal = {
+		header: "Paused",
+		content: "Please wait",
+		footer: ""
+	};
+
+	$rootScope.$emit('messageModal', 'loadingModal', loadingModal);
+
 	var rs = {};
 
 	rs.user_id = rw.user_id;
@@ -210,10 +224,12 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 
 	rs.next_period = function(delay_secs) {
 		delay_secs = delay_secs || 0;
+		rs._enable_messaging = false;
 		rs.timeout(function(){rs.trigger("_next_period");}, delay_secs * 1000);
 	};
 
 	rs.on("_next_period", function() {
+		rs._enable_messaging = false;
 		rs.set("_accumulated_points", rs.accumulated_points);
 		rw.set_period(rs.period + 1);
 	});
@@ -451,6 +467,8 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 	};*/
 
 	rs._start_period = function() {
+		$rootScope.$emit('messageModal', 'loadingModal', false);
+		$rootScope.$emit('messageModal', 'pausedModal', false);
 		while(rs._on_load_callbacks.length) {
 			(rs._on_load_callbacks.shift())();
 		}
@@ -484,8 +502,8 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 		});
 	});
 
-	rw.recv_self("_pause", function(msg) {
-		rs._pause[msg.Value.period] = true;
+	rw.recv_self("__paused__", function(msg) {
+		$rootScope.$emit('messageModal', 'pausedModal', pausedModal);
 	});
 
 	rw.recv_self("__resume__", function(msg) {
