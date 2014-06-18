@@ -467,8 +467,10 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 	};*/
 
 	rs._start_period = function() {
-		$rootScope.$emit('messageModal', 'loadingModal', false);
-		$rootScope.$emit('messageModal', 'pausedModal', false);
+		rs.timeout(function() {
+			$rootScope.$emit('messageModal', 'loadingModal', false);
+		});
+
 		while(rs._on_load_callbacks.length) {
 			(rs._on_load_callbacks.shift())();
 		}
@@ -510,6 +512,7 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 		if(rs._pause[msg.Value.period]) {
 			rs._pause[msg.Value.period] = false;
 			if(rs.period === msg.Value.period) {
+				$rootScope.$emit('messageModal', 'pausedModal', false);
 				rs._start_period();
 				rs.send("__resumed__", {period: rs.period});
 			}

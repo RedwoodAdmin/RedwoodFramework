@@ -220,7 +220,9 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 
 	rw.__is_queueable__ = function(key) {
 		return key !== rw.KEY.__reset__
-			&& key !== rw.KEY.__delete__;
+			&& key !== rw.KEY.__delete__
+			&& key !== rw.KEY.__set_period__
+			&& key !== rw.KEY.__set_group__;
 	};
 
 	rw.__sync_send__ = function(key, value, args) {
