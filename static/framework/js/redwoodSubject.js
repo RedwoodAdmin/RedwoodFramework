@@ -427,45 +427,6 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 		delete barriers[barrierId];
 	}
 
-	/*rs._waits = [];
-	rs.on("_synced", function() {
-		rs._on_synced(rs.user_id);
-	});
-	rs.recv("_synced", function(sender, value) {
-		rs._on_synced(sender);
-	});
-	rs.after_waiting_for_all = function(f) {
-		var subjects = rw.subjects.filter(function(id) {
-			return rw.groups[id] == rs._group;
-		});
-		rs._waits.push({ users: subjects, f: f });
-		rs.trigger("_synced", { period: rs.period });
-	};
-	rs.after_waiting_for = function(users, f) {
-		users.push(rs.user_id);
-		rs._waits.push({ users: users, f: f });
-		rs.trigger("_synced", { period: rs.period });
-	};
-	rs._on_synced = function(user_id) {
-
-		if(rs._waits[0]) {
-			var subjects = rs.subjects.filter(function(subject) {
-				return rs._waits[0].users.indexOf(subject.user_id) > -1;
-			});
-			var syncCount = subjects[0].data._synced.filter(function(subject) {
-				return subject.period == rs.period;
-			}).length;
-			if(!subjects.some(function(subject) {
-					return subject.data._synced.filter(function(s) {
-						return s.period == rs.period;
-					}).length != syncCount;
-				})) {
-				var f = rs._waits.shift().f;
-				f();
-			}
-		}
-	};*/
-
 	rs._start_period = function() {
 		rs.timeout(function() {
 			$rootScope.$emit('messageModal', 'loadingModal', false);

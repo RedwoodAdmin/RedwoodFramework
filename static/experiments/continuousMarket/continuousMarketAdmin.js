@@ -13,6 +13,13 @@ Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($root
 				$("#pause-session").removeAttr("disabled");
 			});
 
+			$("#refresh-subjects").click(function () {
+				$("#refresh-subjects").attr("disabled", "disabled");
+				ra.refreshSubjects().then(function() {
+					$("#refresh-subjects").removeAttr("disabled");
+				});
+			});
+
 			$("#reset-session").click(function () {
 				ra.reset();
 			});
@@ -112,7 +119,7 @@ Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($root
 			if($.isArray(config.groups)) {
 				for(var groupId = 0; groupId < config.groups.length; groupId++) {
 					if($.isArray(config.groups[groupId])) {
-						if(config.groups[groupId].contains(ra.subjects[i].user_id)) { //Nested group array
+						if(config.groups[groupId].indexOf(parseInt(ra.subjects[i].user_id)) > -1) { //Nested group array
 							ra.set_group(groupId + 1, ra.subjects[i].user_id);
 						}
 					} else {
@@ -123,7 +130,7 @@ Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($root
 				ra.set_group(1, ra.subjects[i].user_id);
 			}
 		}
-	}
+	};
 
 	Display.initialize();
 
