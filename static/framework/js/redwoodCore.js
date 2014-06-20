@@ -30,7 +30,9 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 		__page_loaded__: "__page_loaded__",
 
 		__set_points__: "__set_points__",
-		__get_period__: "__get_period__"
+		__get_period__: "__get_period__",
+
+		__refresh_subjects__: "__refresh_subjects__"
 	};
 
 	var components = window.location.pathname.split("/");
@@ -371,6 +373,12 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 			case rw.KEY.__set_page__:
 				rw.pages[msg.Sender] = msg.Value.page;
 				if(!rw.__sync__.in_progress && msg.Sender === rw.user_id) {
+					rw.__pending_reload__ = true;
+				}
+				break;
+
+			case rw.KEY.__refresh_subjects__:
+				if(rw.user_id != 'admin' && !rw.__sync__.in_progress) {
 					rw.__pending_reload__ = true;
 				}
 				break;

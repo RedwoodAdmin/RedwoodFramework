@@ -1,116 +1,158 @@
-{% load verbatim %}{% verbatim %}function setupGroups(groupSize) {
-  if (Object.size(r.subjects) === 0 || Object.size(r.subjects) % groupSize !== 0) {
-    return;
-  }
-  var group = Object.size(r.groups) + 2;
-  var lastGroupSize = 0;
-  var i;
-  for (i =0; i < r.subjects.length; i++) {
-    if (r.groups[r.subjects[i]] == group - 1) {
-      lastGroupSize++;
-    }
-  }
-  if (lastGroupSize < groupSize) {
-    group--;
-  }
-  var count = 0;
-  for (i = 0; i < r.subjects.length; i++) {
-    var subject = r.subjects[i];
-    if (!(subject in r.groups)) {
-      r.set_group(group, subject);
-      count++;
-      if (count == groupSize) {
-        count = 0;
-        group++;
-      }
-    }
-  }
-}
+{% load verbatim %}{% verbatim %}
+Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($rootScope, $scope, ra) {
+	var Display = { //Display controller
 
-var session_started = false;
-$(function() {
-  
-  $("#start-session").click(function() {
-    $.ajaxSetup({async:false});
-    for (var i = 0; i < r.subjects.length; i++) { 
-      var period = r.periods[r.subjects[i]];
-      if (period === undefined) {
-        period = 0;
-      }
-      r.set_period(period+1, r.subjects[i]);
-    }
-    return false;
-  });
-  
-  $("#reset-session").click(function() {
-    r.send("__reset__");
-    return false;
-  });
-  
-  $("#regroup").click(function() {
-    var groupsize = parseInt($("#groupsize").val(), 10);
-    setupGroups(groupsize);
-    r.send("groupsize", groupsize);
-  });
-  
-  $("#archive").click(function() {
-    $.post("admin/archive");
-    r.send("__delete__");
-    return false;
-  });
-  
-  r.recv("__router_status__", function(msg) {
-    var status = $("#router-status");
-    if (r.ws.readyState === WebSocket.OPEN) {
-      status.text("Router: Connected");
-      status.removeClass("badge-important");
-      status.addClass("badge-success");
-    } else {
-      status.text("Router: Disconnected");
-      status.removeClass("badge-success");
-      status.addClass("badge-important");
-    }
-  });
-  
-  r.recv("groupsize", function(msg) {
-    $("#groupsize").val(msg.Value);
-  });
-  
-  r.recv("__set_period__", function(msg) {
-    $("#start-session").attr("disabled", "disabled");
-    $("#groupsize").attr("disabled", "disabled");
-    $("#regroup").attr("disabled", "disabled");
-    session_started = true;
-    $("tr.subject-"+msg.Sender+" :nth-child(3)").text(msg.Value.period);
-  });
-  
-  r.recv("__set_group__", function(msg) {
-    $("tr.subject-"+msg.Sender+" :nth-child(2)").text(msg.Value.group);
-  });
-  
-  r.recv("__register__", function(msg) {
-    $("#subject-list").append($("<tr>").addClass("subject-"+msg.Sender).append(
-      $("<td>").text(msg.Sender).after(
-      $("<td>").text(0).after(
-      $("<td>").text(0)))));
-  });
-  
-  r.recv("__set_config__", function(msg) {
-    var a = $.csv.toArrays(msg.Value);
-    for (var i = 0; i < a.length; i++) {
-      var row = a[i];
-      var tr = $("<tr>");
-      for (var j = 0; j < row.length; j++) {
-        var cell = row[j];
-        var td = $("<td>").text(cell);
-        tr.append(td);
-      }
-      $("table.config").append(tr);
-    }
-  });
-  
-  $.ajaxSetup({
-    beforeSend: function(xhr, settings) {
-      xhr.setRequestHeader("X-CSRFToken", $.cookie("csrftoken"));
-  }});
-});{% endverbatim %}
+		initialize: function() {
+			$("#start-session").click(function () {
+				$("#start-session").attr("disabled", "disabled");
+				ra.trigger("start_session");
+			});
+
+			ra.on("start_session", function() {
+				$("#start-session").attr("disabled", "disabled");
+				$("#pause-session").removeAttr("disabled");
+			});
+
+			$("#refresh-subjects").click(function () {
+				$("#refresh-subjects").attr("disabled", "disabled");
+				ra.refreshSubjects().then(function() {
+					$("#refresh-subjects").removeAttr("disabled");
+				});
+			});
+
+			$("#reset-session").click(function () {
+				ra.reset();
+			});
+
+			$("#pause-session").click(function () {
+				$("#pause-session").attr("disabled", "disabled");
+				ra.trigger("pause");
+			});
+			ra.on("pause", function() {
+				$("#pause-session").attr("disabled", "disabled");
+			});
+
+			$("#resume-session").click(function () {
+				$("#resume-session").attr("disabled", "disabled");
+				ra.trigger("resume");
+			});
+			ra.on("resume", function() {
+				$("#resume-session").attr("disabled", "disabled");
+				$("#pause-session").removeAttr("disabled");
+			});
+
+			ra.on_subject_paused(function(userId) {
+				$("#pause-session").attr("disabled", "disabled");
+				$("tr.subject-" + userId).addClass("warning"); //Display current period for each user
+				$("tr.subject-" + userId + " :nth-child(4)").text("Paused"); //Display current period for each user
+			});
+
+			ra.on_all_paused(function() {
+				$("#resume-session").removeAttr("disabled");
+			});
+
+			ra.on_subject_resumed(function(user) {
+				$("tr.subject-" + user).removeClass("warning"); //Display current period for each user
+				$("tr.subject-" + user + " :nth-child(4)").text(""); //Display current period for each user
+			});
+
+			$("#archive").click(function () {
+				var r = confirm("Are you sure you want to archive this session?");
+				if(r == true) {
+					ra.delete_session();
+				}
+			});
+
+			ra.on_router_connected(function(connected) { //Display router connection status
+				var status = $("#router-status");
+				if (connected) {
+					status.text("Router Connected");
+					status.removeClass("badge-important");
+					status.addClass("badge-success");
+				} else {
+					status.text("Router Disconnected");
+					status.removeClass("badge-success");
+					status.addClass("badge-important");
+				}
+			});
+
+			ra.on_set_period(function(user, period) {
+				$("tr.subject-" + user + " :nth-child(3)").text(period); //Display current period for each user
+			});
+
+			ra.on_set_group(function(user, group) {
+				$("tr.subject-" + user + " :nth-child(2)").text(group); //Display group for each user
+			});
+
+			ra.on_register(function(user) { //Add a row to the table to each user
+				$("#subject-list").empty();
+				for(var i = 0, l = ra.subjects.length; i < l; i++) {
+					$("#subject-list").append($("<tr>").addClass("subject-" + ra.subjects[i].user_id).append(
+						$("<td>").text(ra.subjects[i].user_id).after(
+							$("<td>").text(0).after(
+								$("<td>").text(0).after(
+									$("<td>").text(""))))));
+				}
+			});
+
+			ra.on_set_config(function(config) { //Display the config file
+				$("table.config").empty();
+				var a = $.csv.toArrays(config);
+				for (var i = 0; i < a.length; i++) {
+					var row = a[i];
+					var tr = $("<tr>");
+					for (var j = 0; j < row.length; j++) {
+						var cell = row[j];
+						var td = $((i == 0 ? "<th>" : "<td>")).text(cell);
+						tr.append(td);
+					}
+					$("table.config").append(tr);
+				}
+			});
+		}
+	};
+
+
+	var resetGroups = function() {
+		var config = ra.get_config(1, 0);
+		for (var i = 0; i < ra.subjects.length; i++) { //set all subjects to group 1 (this is so that matching can be changed per period)
+			if($.isArray(config.groups)) {
+				for(var groupId = 0; groupId < config.groups.length; groupId++) {
+					if($.isArray(config.groups[groupId])) {
+						if(config.groups[groupId].indexOf(parseInt(ra.subjects[i].user_id)) > -1) { //Nested group array
+							ra.set_group(groupId + 1, ra.subjects[i].user_id);
+						}
+					} else {
+						ra.set_group(1, ra.subjects[i].user_id);
+					}
+				}
+			} else {
+				ra.set_group(1, ra.subjects[i].user_id);
+			}
+		}
+	};
+
+	Display.initialize();
+
+	ra.on_load(function () {
+		resetGroups(); //Assign groups to users
+	});
+
+	ra.on_register(function(user) { //Add a row to the table to each user
+		resetGroups();
+	});
+
+	ra.on("start_session", function() {
+		ra.start_session();
+	});
+
+	ra.on("pause", function() {
+		ra.pause();
+	});
+
+	ra.on("resume", function() {
+		ra.resume();
+	});
+
+}]);
+{% endverbatim %}
