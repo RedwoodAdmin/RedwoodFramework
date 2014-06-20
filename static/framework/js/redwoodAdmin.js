@@ -1,7 +1,9 @@
 
-Redwood.factory("Admin", ["$rootScope", "RedwoodCore", function($rootScope, rw) {
+Redwood.factory('Admin', ['$q', '$rootScope', 'RedwoodCore', function($q, $rootScope, rw) {
 
 	var ra = {};
+
+	var messageDeferals = {};
 
 	ra.user_id = rw.user_id;
 	ra.set_period = rw.set_period;
@@ -245,6 +247,23 @@ Redwood.factory("Admin", ["$rootScope", "RedwoodCore", function($rootScope, rw) 
 	ra.delete_session = function() {
 		ra.trigger("__delete__");
 		$.post("admin/archive");
+	};
+
+
+
+	ra.on('__refresh_subjects__', function(value){
+		if(rw.__sync__.in_progress) return;
+		var deferred = messageDeferals['__refresh_subjects__'].shift();
+		deferred.resolve(value);
+	});
+	ra.refreshSubjects = function() {
+		if(!messageDeferals['__refresh_subjects__']) {
+			messageDeferals['__refresh_subjects__'] = [];
+		}
+		var deferred = $q.defer();
+		ra.trigger('__refresh_subjects__');
+		messageDeferals['__refresh_subjects__'].push(deferred);
+		return deferred.promise;
 	};
 
 	return ra;
