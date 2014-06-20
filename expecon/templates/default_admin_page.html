@@ -1,45 +1,95 @@
 {% autoescape off %}{% load verbatim %}<!DOCTYPE HTML>
-<html>
+<html ng-app="Redwood">
   <head>
 		<title>{{ name }} Admin</title>{% verbatim %}
-		<script type="text/javascript" src="{{ STATIC_URL }}js/jquery.min.js"></script>
-    <script type="text/javascript" src="{{ STATIC_URL }}js/jquery.cookie.js"></script>
-		<script type="text/javascript" src="{{ STATIC_URL }}js/redwood.js"></script>
-		<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}css/bootstrap.min.css"></link>
-    <script type="text/javascript">
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/lib/jquery/jquery.min.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/lib/bootstrap/bootstrap-3.1.1.min.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/lib/angular/angular-1.2.16.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodCore.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodHelpers.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodAdmin.js"></script>
+		<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}framework/css/bootstrap.min.css"></link>
+		<script type="text/javascript">
 			{{ js }}
 		</script>
 		<style type="text/css">
 			{{ css }}
 		</style>
 	</head>
-	<body>
-    <div class="container" style="margin-top: 50px">
-      <div class="clearfix">
-        <a class="pull-right" href="admin/payouts">View Payouts</a>
-      </div>
-      <table id="subject-list" class="table table-striped" style="min-height: 200px;display: block;">
-        <tr><th>ID</th><th>Group</th><th>Period</th></tr>
-      </table>
-      <div id="admin-control">
-        <form class="well form-inline">
-          <button id="start-session" class="btn btn-primary">Start Session</button>
-          <label class="offset1">
-            Groupsize:
-            <input id="groupsize" style="width: 25pt;" type="number" min="1" value="1" />
-            <input id="regroup" class="btn span1" value="Group" />
-          </label>
-          <div class="pull-right">
-            <button id="archive" class="btn">Archive Session</button>
-            <a id="download" class="btn" href="admin/download">Download Data</a>
-            <button id="reset-session" class="btn btn-danger">Reset Session</button>
-            <span id="router-status" class="badge badge-important">Router: Disconnected</span>
-          </div>
-        </form>
-      </div>
-      <input type="file" data-load-config />
-      <table class="config table table-striped table-condensed">
-      </table>
-    </div>
+	<body ng-controller="AdminCtrl">
+		<div class="navbar navbar-fixed-top container">
+			<div class="navbar-inner">
+				<div class="container-fluid">
+					<div class="brand" href="#">Economics Experiment</div>
+					<div class="nav-collapse collapse">
+						<p class="navbar-text pull-right">Administrator</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="container">
+			<div class="row">
+				<div class="span3">
+					<div class="row">
+						<div class="span3">
+							<div class="well sidebar-nav">
+								<ul class="nav nav-list">
+									<li><span id="router-status" class="badge badge-important"></span></li>
+								</ul>
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<div class="span3">
+							<div class="well sidebar-nav">
+								<ul class="nav nav-list">
+									<li><a href="admin/payouts" target="_blank">View Payouts</a></li>
+									<li><a id="archive" href="#">Archive Session</a></li>
+									<li><a id="download" href="admin/download">Download Data</a></li>
+								</ul>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="span9">
+					<div class="row">
+						<div class="span9">
+							<p>Subjects:</p>
+							<table class="table table-bordered table-condensed table-striped">
+								<thead>
+								<tr><th>ID</th><th>Group</th><th>Period</th><th style="width: 150px;"></th></tr>
+								</thead>
+								<tbody id="subject-list">
+								</tbody>
+							</table>
+						</div>
+					</div>
+					<div class="row">
+						<div class="span6">
+							<button id="start-session" class="btn btn-success">Start Session</button>
+							<button id="refresh-subjects" class="btn btn-info" title="Attempt recover by refreshing all subject browsers">Recover Session</button>
+							<button id="reset-session" class="btn btn-danger">Reset Session</button>
+						</div>
+						<div class="span3">
+							<div class="pull-right">
+								<button id="pause-session" class="btn btn-warning" disabled="disabled">Pause</button>
+								<button id="resume-session" class="btn btn-primary" disabled="disabled">Resume</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="span12">
+					<hr/>
+					<p>Configuration:</p>
+					<load-config></load-config>
+					<div style="overflow: auto;">
+						<table class="config table table-bordered table-striped table-condensed"></table>
+					</div>
+				</div>
+			</div>
+		</div>
 	</body>
 </html>{% endverbatim %}{% endautoescape %}
