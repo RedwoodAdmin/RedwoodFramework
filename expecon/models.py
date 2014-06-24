@@ -30,7 +30,7 @@ class Experiment(models.Model):
 		if self.admin_html.strip() == "":
 			self.admin_html = loader.render_to_string('default_admin_page.html', {'name': self.name})
 		if self.admin_css.strip() == "":
-			self.admin_css = loader.render_to_string('default_admin_page.css')
+			self.admin_css = loader.render_to_string('default_page.css')
 		if self.admin_js.strip() == "":
 			self.admin_js = loader.render_to_string('default_admin_page.js')
 		super(Experiment, self).save(*args, **kwargs)
@@ -89,9 +89,18 @@ class Page(models.Model):
 				template = 'default_start_page.html'
 			elif self.name == 'Finish':
 				template = 'default_finish_page.html'
-			self.html = loader.render_to_string(template, {'name': self.name})
+			self.html = loader.render_to_string(template, {'name': self.name, 'loadverbatim': '{% load verbatim %}', 'verbatim': '{% verbatim %}', 'endverbatim': '{% endverbatim %}'})
 		if self.js.strip() == "":
-			self.js = loader.render_to_string('default_page.js')
+			template = 'default_page.js'
+			if self.name == 'Wait':
+				template = 'default_wait_page.js'
+			elif self.name == 'Start':
+				template = 'default_start_page.js'
+			elif self.name == 'Finish':
+				template = 'default_finish_page.js'
+			self.js = loader.render_to_string(template)
+		if self.css.strip() == "":
+			self.css = loader.render_to_string('default_page.css')
 		super(Page, self).save(*args, **kwargs)
 		
 	def render(self, context_instance=None):
