@@ -319,7 +319,7 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 				return offers[d].qty < 0 && !offers[d].closed;
 			})
 			.sort(function(a, b) {
-				return offers[a].price - offers[b].price;
+				return offers[b].price - offers[a].price;
 			})
 			.map(function(d) {
 				return offers[d];
@@ -335,9 +335,6 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 						x: $scope.allocation.x - bid.qty,
 						y: $scope.allocation.y + (bid.price * bid.qty)
 					};
-				})
-				.sort(function(a, b) {
-					return a.y - b.y;
 				});
 		}
 
@@ -351,9 +348,6 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 						x: $scope.allocation.x - ask.qty,
 						y: $scope.allocation.y + (ask.price * ask.qty)
 					};
-				})
-				.sort(function(a, b) {
-					return b.y - a.y;
 				});
 		}
 
