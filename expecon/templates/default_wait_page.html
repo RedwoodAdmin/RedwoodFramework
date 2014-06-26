@@ -1,10 +1,16 @@
-{% autoescape off %}{% load verbatim %}<!DOCTYPE HTML>
-<html>
+{% autoescape off %}{% load verbatim %}{{ loadverbatim }}
+<!DOCTYPE HTML>
+<html ng-app="Redwood">
 	<head>
-		<title>{{ name }}</title>{% verbatim %}
-		<script type="text/javascript" src="{{ STATIC_URL }}js/jquery.min.js"></script>
-		<script type="text/javascript" src="{{ STATIC_URL }}js/redwood.js"></script>
-		<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}css/bootstrap.min.css"></link>
+		<title>{{ name }}</title>
+{% verbatim %}
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/lib/jquery/jquery.min.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/lib/bootstrap/bootstrap-3.1.1.min.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/lib/angular/angular-1.2.16.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodCore.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodHelpers.js"></script>
+		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodSubject.js"></script>
+		<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}framework/css/bootstrap-3.1.1.min.css"></link>
 		<script type="text/javascript">
 			{{ js }}
 		</script>
@@ -12,9 +18,28 @@
 			{{ css }}
 		</style>
 	</head>
-	<body>
+{% endverbatim %}{{ verbatim }}{% verbatim %}
+	<body ng-controller="SubjectCtrl">
+		
+		<div class="navbar navbar-fixed-top container">
+			<div class="navbar navbar-default" style="margin-bottom: 0;">
+				<div class="navbar-brand" href="#">Economics Experiment</div>
+				<ul class="nav navbar-nav">
+					<li class="active">
+						<a>User ID: <span>{{$root.user_id}}</span></a>
+					</li>
+				</ul>
+			</div>
+		</div>
+		
 		<div class="container">
-			<p>Please wait for the experiment to continue...</p>
+			<div class="row">
+				<div class="col-lg-12">
+					Please wait for experiment to start...
+				</div>
+			</div>
 		</div>
 	</body>
-</html>{% endverbatim %}{% endautoescape %}
+{% endverbatim %}{{ endverbatim }}{% verbatim %}
+</html>
+{% endverbatim %}{% endautoescape %}

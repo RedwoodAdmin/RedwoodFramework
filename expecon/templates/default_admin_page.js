@@ -114,7 +114,7 @@ Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($root
 
 
 	var resetGroups = function() {
-		var config = ra.get_config(1, 0);
+		var config = ra.get_config(1, 0) || {};
 		for (var i = 0; i < ra.subjects.length; i++) { //set all subjects to group 1 (this is so that matching can be changed per period)
 			if($.isArray(config.groups)) {
 				for(var groupId = 0; groupId < config.groups.length; groupId++) {

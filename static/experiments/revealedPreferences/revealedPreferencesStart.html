@@ -1,0 +1,55 @@
+<div ng-controller="SubjectCtrl">
+
+	<div class="navbar navbar-fixed-top container">
+		<div class="navbar navbar-default" style="margin-bottom: 0;">
+			<div class="navbar-brand" href="#">Economics Experiment</div>
+			<ul class="nav navbar-nav">
+				<li class="active">
+					<a>User ID: <span>{{$root.user_id}}</span></a>
+				</li>
+			</ul>
+			<div class="navbar-right">
+				<div class="navbar-text">Period: <span>{{$root.period}}</span></div>
+				<div class="navbar-text" ng-show="rounds">Round: <span>{{round}} / {{rounds}}</span></div>
+				<div class="navbar-text">Total Reward: <span>{{$root.totalPoints | number:2}}</span></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="container">
+		<div class="row">
+			<div class="col-lg-3"></div>
+			<div class="col-lg-9">
+				<div class="row">
+					<div class="col-lg-1">
+						<div style="display: table-cell; height: 540px; vertical-align: middle;">
+							<div class="rotate90" style="max-width:60px;">
+								<div style="display: inline-block; text-align: center; white-space: nowrap;">Number of Y<br/>[Probability of Y: <span>{{1 - config.ProbX}}</span>]</div>
+							</div>
+						</div>
+					</div>
+					<div class="col-lg-7">
+						<div plot style="height: 540px;"></div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-lg-1"></div>
+					<div class="col-lg-8">
+						<div style="text-align: center;"><div style="display: inline-block;">Number of X<br/>[Probability of X: <span>{{config.ProbX}}</span>]</div></div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-lg-1"></div>
+					<div class="col-lg-8">
+						<button class="btn btn-success" ng-click="confirm()" ng-disabled="!inputsEnabled">Ready</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<hr style="margin-top: 20px;"/>
+			<div class="col-lg-12" id="footer"></div>
+		</div>
+	</div>
+
+</div>
