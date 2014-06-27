@@ -326,27 +326,35 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 			});
 
 		if($scope.config.canSell) {
+			var x = $scope.allocation.x;
+			var y = $scope.allocation.y;
 			$scope.plotModel.bidProjections = $scope.bids
 				.filter(function(bid) {
 					return bid.user_id != rs.user_id;
 				})
 				.map(function(bid) {
+					x -= bid.qty;
+					y += (bid.price * bid.qty);
 					return {
-						x: $scope.allocation.x - bid.qty,
-						y: $scope.allocation.y + (bid.price * bid.qty)
+						x: x,
+						y: y
 					};
 				});
 		}
 
 		if($scope.config.canBuy) {
+			var x = $scope.allocation.x;
+			var y = $scope.allocation.y;
 			$scope.plotModel.askProjections = $scope.asks
 				.filter(function(ask) {
 					return ask.user_id != rs.user_id;
 				})
 				.map(function(ask) {
+					x -= ask.qty;
+					y += (ask.price * ask.qty);
 					return {
-						x: $scope.allocation.x - ask.qty,
-						y: $scope.allocation.y + (ask.price * ask.qty)
+						x: x,
+						y: y
 					};
 				});
 		}
