@@ -42,7 +42,8 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 			}
 
 			rs.recv("_at_barrier", function(sender, barrierId) {
-				if(rs.is_realtime && barrierId == '_tick_' + tick) {
+				if(rs.is_realtime && barrierId == '_tick_' + tick + '_' + rs.period) {
+					console.log('forcing tick');
 					$timeout.cancel(timeout);
 					executeTick();
 				}

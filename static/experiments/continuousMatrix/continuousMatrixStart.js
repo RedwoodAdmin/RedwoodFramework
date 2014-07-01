@@ -15,8 +15,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
 		$scope.matrix = $scope.user_index === 0 ? rs.config.matrix : transpose(rs.config.matrix);
 
-		$scope.config = rs.config;
-
 		$scope.yMax = $scope.matrix[0][0][0]; //Find the maximum reward value to set the y-axis on the plot
 		$scope.matrix.forEach(function(row) {
 			row.forEach(function(cell) {
@@ -46,7 +44,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 		rs.trigger("ready");
 	};
 
-	rs.on("ready", function(value){ //event handler for ready button click
+	rs.on("ready", function(){ //event handler for ready button click
 		$scope.readyEnabled = false;
 		rs.synchronizationBarrier('ready').then(function() {
 
@@ -64,7 +62,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 		});
 	});
 
-	var processTick = function(tick){ //sent by admin at the specified frequency as long as all subjects have acknowledged the previous tick
+	var processTick = function(tick){
 
 		$scope.tick = tick;
 
@@ -130,13 +128,13 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", 'Sy
 
 }]);
 
-Redwood.directive('plot', [function() {
+Redwood.directive('plot', ['RedwoodSubject', function(rs) {
 	return {
 		link: function($scope, elem, attr) {
 
-			var plot = [], opponentPlot = [], subPeriods = [];
+			var plot = [], opponentPlot = [], subPeriods = [], loaded = false;
 
-			$scope.$watch('config', function() {
+			rs.on_load(function() {
 				if($scope.ticksPerSubPeriod > 1){ //set up the sub period markers so they can be displayed on the plot
 					var subPeriod = 0;
 					do {
@@ -144,8 +142,9 @@ Redwood.directive('plot', [function() {
 						subPeriods.push(subPeriod / $scope.clock.getDurationInTicks());
 					} while(subPeriod < $scope.clock.getDurationInTicks());
 				}
+				loaded = true;
 				replot();
-			}, true);
+			});
 
 			$scope.$watch('tick', function(tick) {
 				if(tick % $scope.ticksPerSubPeriod === 0) {
@@ -160,7 +159,7 @@ Redwood.directive('plot', [function() {
 
 			function replot() {
 
-				if(!$scope.config) return;
+				if(!loaded) return;
 
 				var xRange = 1;
 				var opts = {
