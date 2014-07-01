@@ -20,7 +20,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 	});
 
 	$scope.onSelection = function(selection) {
-		if($scope.inputsEnabled) { //Only trigger action if selection has changed
+		if($scope.inputsEnabled) {
 			$scope.selection = selection;
 		}
 	};
@@ -28,7 +28,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 	$scope.confirm = function() {
 		if(!angular.isNullOrUndefined($scope.selection)) { //Check that user has selected an action
 			$scope.inputsEnabled = false;
-			rs.trigger("action", $scope.selection); //Trigger the current selection
+			rs.trigger("action", $scope.selection);
 		} else {
 			alert("Please select an action.");
 		}
@@ -38,7 +38,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		$scope.inputsEnabled = false;
 		$scope.selection = value;
 		$scope.action = value;
-		rs.synchronizationBarrier('round_' + $scope.round).then(function() { //Call this function once the specified subjects have reached this point
+		rs.synchronizationBarrier('round_' + $scope.round).then(function() { //Call this function once the partner subject has reached this point
 			allocateRewards($scope.action, $scope.partnerAction);
 			rs.trigger("next_round");
 		}, [$scope.partner_id]);
@@ -46,7 +46,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 
 	rs.recv("action", function(sender, value) {
 		if(sender == $scope.partner_id) {
-			$scope.partnerAction = value; //Store partner action
+			$scope.partnerAction = value;
 		}
 	});
 
@@ -54,17 +54,17 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		$scope.round++;
 		$scope.rounds = rs.config.rounds[$scope.pair_index];
 
-		$scope.prevAction = $scope.action; //Shift current action to previous action
+		$scope.prevAction = $scope.action;
 		$scope.prevPartnerAction = $scope.partnerAction;
 
-		if($scope.round > $scope.rounds) { //If we have completed the last round
+		if($scope.round > $scope.rounds) {
 			rs.next_period(5);
 		} else {
 			$scope.inputsEnabled = true;
 		}
 	});
 
-	var allocateRewards = function(ai, aj){ //Allocate points according to user actions and matrix
+	var allocateRewards = function(ai, aj){
 		$scope.reward = $scope.matrix[ai - 1][aj - 1][0];
 		rs.add_points($scope.reward);
 
@@ -90,5 +90,5 @@ Redwood.filter("action", function() {
 	};
 	return function(value) {
 		return	actions[value];
-	}
+	};
 });
