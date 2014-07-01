@@ -5,7 +5,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		processConfig();
 
 		if($scope.config.referencePeriod) {
-			var referenceResult = rs.subject[rs.user_id].data.results.filter(function(result) {
+			var referenceResult = rs.self.data.results.filter(function(result) {
 				return result.period === $scope.config.referencePeriod;
 			})[0];
 			$scope.Ex = referenceResult.x;
@@ -29,7 +29,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 			rs.trigger("next_period");
 			return;
 		} else if($scope.round > 0 && $scope.config.x_over_y_threshold) {
-			var prices = rs.subject[rs.user_id].get("prices");
+			var prices = rs.self.get("prices");
 			if(Math.abs(prices.x / prices.y) < $scope.config.x_over_y_threshold) {
 				rs.trigger("next_period");
 				return;
@@ -41,7 +41,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		$scope.cursor = undefined;
 		$scope.selection = undefined;
 
-		var prices = rs.subject[rs.user_id].get("prices");
+		var prices = rs.self.get("prices");
 		$scope.Px = $scope.round > 1 ? prices.x : $scope.config.Px;
 		$scope.Py = $scope.round > 1 ? prices.y : $scope.config.Py;
 
@@ -82,7 +82,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 			var excessDemandX = 0;
 			var excessDemandY = 0;
 			rs.subjects.filter(function(subject) {
-				return subject.groupForPeriod && subject.groupForPeriod === rs.subject[rs.user_id].groupForPeriod;
+				return subject.groupForPeriod && subject.groupForPeriod === rs.self.groupForPeriod;
 			}).forEach(function(subject) {
 				var selection = subject.get("selection");
 				excessDemandX += selection[0] - $scope.Ex;
