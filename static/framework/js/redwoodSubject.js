@@ -393,23 +393,21 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 		barrierId += '_' + rs.period;
 		barriers[barrierId] = barriers[barrierId] || {received: []};
 		if(subjectIds) {
-			barriers[barrierId].subjectIds = subjectIds;
+			barriers[barrierId].subjectIds = angular.copy(subjectIds);
+			barriers[barrierId].subjectIds.push(rs.self.user_id);
 		}
 		barriers[barrierId].deferred = deferred;
 		rs.trigger("_at_barrier", barrierId);
 		return deferred.promise;
 	};
-	rs.on('_at_barrier', function(barrierId) {
-		barriers[barrierId].received.push(rs.user_id);
-		checkBarrier(barrierId);
-	});
-	rs.recv('_at_barrier', function(sender, barrierId) {
-		barriers[barrierId] = barriers[barrierId] || {received: []};
-		barriers[barrierId].received.push(sender);
-		checkBarrier(barrierId);
+	rw.recv_subjects('_at_barrier', function(msg) {
+		barriers[msg.Value] = barriers[msg.Value] || {received: []};
+		barriers[msg.Value].received.push(msg.Sender);
+		checkBarrier(msg.Value);
 	});
 	function checkBarrier(barrierId) {
 		var barrier = barriers[barrierId];
+		if(!barrier.deferred) return;
 		if(barrier.subjectIds) {
 			if(barrier.subjectIds.some(function(id) {
 				return barrier.received.indexOf(id) < 0;
