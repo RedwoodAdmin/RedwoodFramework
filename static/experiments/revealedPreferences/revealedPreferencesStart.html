@@ -1,20 +1,6 @@
 <div ng-controller="SubjectCtrl">
 
-	<div class="navbar navbar-fixed-top container">
-		<div class="navbar navbar-default" style="margin-bottom: 0;">
-			<div class="navbar-brand" href="#">Economics Experiment</div>
-			<ul class="nav navbar-nav">
-				<li class="active">
-					<a>User ID: <span>{{$root.user_id}}</span></a>
-				</li>
-			</ul>
-			<div class="navbar-right">
-				<div class="navbar-text">Period: <span>{{$root.period}}</span></div>
-				<div class="navbar-text" ng-show="rounds">Round: <span>{{round}} / {{rounds}}</span></div>
-				<div class="navbar-text">Total Reward: <span>{{$root.totalPoints | number:2}}</span></div>
-			</div>
-		</div>
-	</div>
+	<div rw-subject-header title="Revealed Preferences" round="round" rounds="rounds" show-points></div>
 
 	<div class="container">
 		<div class="row">
