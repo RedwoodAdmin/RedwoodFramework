@@ -105,26 +105,16 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		} else if($scope.config.canAsk && isValidAsk(price, qty)) {
 			$scope.ask = {price: price, qty: -qty};
 		}
-		
-		var selectedOffer = false;
-		$.each($scope.offers, function (key, offer) {
-			console.log("Offer is: ", offer, "price = ", price, "qty = ", qty);
-			if (Math.abs(Math.abs(offer.price) - Math.abs(price)) < 0.2 &&
-				Math.abs(Math.abs(offer.qty) - Math.abs(qty)) < 0.2) {
-				$scope.openOffer(offer);
-				selectedOffer = true;
-			}
-		});
 
-		if ($scope.selected && selectedOffer == false) {
-			if (Math.abs($scope.selected.qty - qty) < 0.2 &&
-				Math.abs($scope.selected.price - price) < 0.2) {
-				$scope.submitBid();
-				$scope.submitAsk();
-			} else $scope.selected = {qty:qty , price:price};
-		} else {
-			if (selectedOffer == false) $scope.selected = {qty:qty , price:price};
-		}
+	});
+
+	$scope.$on("heatMap.clickSelected", function(e) {
+		$scope.submitBid();
+		$scope.submitAsk();
+	});
+
+	$scope.$on("heatMap.clickOffer", function(e, offer) {
+		$scope.openOffer(offer);
 	});
 
 	rs.on("trade", function() {
@@ -358,7 +348,8 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 					y += (bid.price * bid.qty);
 					return {
 						x: x,
-						y: y
+						y: y,
+						offer: bid
 					};
 				});
 		}
@@ -375,7 +366,8 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 					y += (ask.price * ask.qty);
 					return {
 						x: x,
-						y: y
+						y: y,
+						offer: ask
 					};
 				});
 		}
@@ -499,10 +491,38 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				.attr("r", 5);
 			var selectedCurve = d3.rw.indifferenceCurve(); 
 
+			function inSnapRange(point1, point2) {
+				return Math.abs(point1.x - point2.x) < 0.2 &&
+							Math.abs(point1.y - point2.y) < 0.2;
+			}
+
 			plot.on("click", function() {
 				var position = d3.mouse(this);
 				var x = scales.offsetToX(position[0]);
 				var y = scales.offsetToY(position[1]);
+
+				/*if (snappedOntoPoint != 'none') {}
+					// if not snappedOntoPoint && 
+				else if ((x - $scope.allocation.x >= 0 && y - $scope.allocation.y < 0) ||
+						 (x - $scope.allocation.x < 0 && y - $scope.allocation.y >= 0)) {
+					$scope.$apply(function() {
+						$scope.selected = {"x": x, "y": y};
+					});
+				}*/
+				if(snappedOntoPoint == 'selected') {
+					$scope.$emit("heatMap.clickSelected", $scope.hover.x, $scope.hover.y);
+
+				} else if(snappedOntoPoint == 'offer') {
+					$scope.$emit("heatMap.clickOffer", $scope.hover.offer);
+
+				} else if((x - $scope.allocation.x >= 0 && y - $scope.allocation.y < 0) ||
+					  	 (x - $scope.allocation.x < 0 && y - $scope.allocation.y >= 0)) {
+					snappedOntoPoint = 'selected';
+					$scope.$apply(function() {
+						$scope.selected = {"x": x, "y": y};
+					});
+				}
+
 				$scope.$emit("heatMap.click", x, y);
 			});
 
@@ -510,11 +530,6 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				var position = d3.mouse(this);
 				$scope.$apply(function() {
 					mouseDown = {x: scales.offsetToX(position[0]), y: scales.offsetToY(position[1])};
-					if (snappedOntoPoint != 'none') {}
-					else if ((mouseDown.x - $scope.allocation.x >= 0 && mouseDown.y - $scope.allocation.y < 0) ||
-							 (mouseDown.x - $scope.allocation.x < 0 && mouseDown.y - $scope.allocation.y >= 0)) {
-						$scope.selected = mouseDown;
-					}
 				});
 			});
 			plot.on("mouseup", function() {
@@ -540,8 +555,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 						to = angular.copy(values);
 						onDrag();
 					} else {
-						if (Math.abs($scope.selected.x - values.x) < 0.2 &&
-							Math.abs($scope.selected.y - values.y) < 0.2) {
+						if (inSnapRange($scope.selected, values)) {
 							$scope.hover = $scope.selected;
 							$(".selected-container").css('fill', 'black');
 							$(".selected-container > .indifference-curve").css('stroke', 'black');
@@ -549,16 +563,14 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 						} else {
 							snappedOntoPoint = 'none';
 							$scope.bidProjections.forEach(function(projection) {
-								if (Math.abs(projection.x - values.x) < 0.2 &&
-									Math.abs(projection.y - values.y) < 0.2) {
+								if (inSnapRange(projection, values)) {
 									$scope.hover = projection;
 									$(".hover-container > .indifference-curve").css('stroke', 'black');
 									snappedOntoPoint = 'offer';
 								}
 							});
 							$scope.askProjections.forEach(function(projection) {
-								if (Math.abs(projection.x - values.x) < 0.2 &&
-									Math.abs(projection.y - values.y) < 0.2) {
+								if (inSnapRange(projection, values)) {
 									$scope.hover = projection;
 									$(".hover-container > .indifference-curve").css('stroke', 'black');
 									snappedOntoPoint = 'offer';
