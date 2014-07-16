@@ -548,31 +548,23 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 							$(".selected-container > .indifference-curve").css('stroke', 'black');
 							snappedOntoPoint = 'selected';
 						} else {
-							var container = bidProjectionContainer;
-							var connectors = container.selectAll('.projection-connector').data($scope.bidProjections || []);
 							snappedOntoPoint = 'none';
-							connectors
-								.each(function(projection) {
-									if (Math.abs(projection.x - values.x) < 0.2 &&
-										Math.abs(projection.y - values.y) < 0.2) {
-										$scope.hover = projection;
-										$(".hover-container > .indifference-curve").css('stroke', 'black');
-										snappedOntoPoint = 'offer';
-									}
-								});
-							connectors.exit().remove();
-							container = askProjectionContainer;
-							connectors = container.selectAll('.projection-connector').data($scope.askProjections || []);
-							connectors
-								.each(function(projection) {
-									if (Math.abs(projection.x - values.x) < 0.2 &&
-										Math.abs(projection.y - values.y) < 0.2) {
-										$scope.hover = projection;
-										$(".hover-container > .indifference-curve").css('stroke', 'black');
-										snappedOntoPoint = 'offer';
-									}
-								});
-							connectors.exit().remove();
+							$scope.bidProjections.forEach(function(projection) {
+								if (Math.abs(projection.x - values.x) < 0.2 &&
+									Math.abs(projection.y - values.y) < 0.2) {
+									$scope.hover = projection;
+									$(".hover-container > .indifference-curve").css('stroke', 'black');
+									snappedOntoPoint = 'offer';
+								}
+							});
+							$scope.askProjections.forEach(function(projection) {
+								if (Math.abs(projection.x - values.x) < 0.2 &&
+									Math.abs(projection.y - values.y) < 0.2) {
+									$scope.hover = projection;
+									$(".hover-container > .indifference-curve").css('stroke', 'black');
+									snappedOntoPoint = 'offer';
+								}
+							});
 							if (snappedOntoPoint == 'none') {
 								$scope.hover = values;
 								$(".selected-container").css('fill', 'grey');
