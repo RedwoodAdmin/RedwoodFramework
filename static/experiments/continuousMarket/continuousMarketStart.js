@@ -517,7 +517,6 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 					}
 				});
 			});
-			
 			plot.on("mouseup", function() {
 				$scope.$apply(function() {
 					mouseDown = false;
@@ -843,62 +842,40 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				connectors.exit().remove();
 			}
 
-			function redrawHoverCurve(hover) {
+			function redrawIndifferenceCurve(value, container, curve, text, point) {
 				if(!$scope.config) {
 					return;
 				}
 
-				if(!hover) {
-					hoverContainer.attr("visibility", "hidden");
+				if(!value) {
+					container.attr("visibility", "hidden");
 				} else {
 
-					var xOffset = scales.xToOffset(hover.x);
-					var yOffset = scales.yToOffset(hover.y);
+					var xOffset = scales.xToOffset(value.x);
+					var yOffset = scales.yToOffset(value.y);
 
-					var utility = $scope.config.utilityFunction(hover.x, hover.y);
+					var utility = $scope.config.utilityFunction(value.x, value.y);
 
-					hoverText
+					text
 						.attr("x", xOffset + 10)
 						.attr("y", yOffset - 10)
 						.text("[" + utility.toFixed(2) + "]");
 
-					hoverPoint.attr("cx", xOffset).attr("cy", yOffset);
+					point.attr("cx", xOffset).attr("cy", yOffset);
 
-					hoverContainer.call(hoverCurve.value(utility));
+					container.call(curve.value(utility));
 
-					hoverContainer.attr("visibility", "visible");
+					container.attr("visibility", "visible");
 
 				}
-
 			}
-			
+
+			function redrawHoverCurve(hover) {
+				redrawIndifferenceCurve(hover, hoverContainer, hoverCurve, hoverText, hoverPoint)
+			}
+
 			function redrawSelectedCurve(selected) {
-				if(!$scope.config) {
-					return;
-				}
-				
-				if(!selected) {
-					selectedContainer.attr("visibility", "hidden");
-				} else {
-
-					var xOffset = scales.xToOffset(selected.x);
-					var yOffset = scales.yToOffset(selected.y);
-
-					var utility = $scope.config.utilityFunction(selected.x, selected.y);
-
-					selectedText
-						.attr("x", xOffset + 10)
-						.attr("y", yOffset - 10)
-						.text("[" + utility.toFixed(2) + "]");
-
-					selectedPoint.attr("cx", xOffset).attr("cy", yOffset);
-
-					selectedContainer.call(selectedCurve.value(utility));
-
-					selectedContainer.attr("visibility", "visible");
-
-				}
-
+				redrawIndifferenceCurve(selected, selectedContainer, selectedCurve, selectedText, selectedPoint)
 			}
 
 		}
