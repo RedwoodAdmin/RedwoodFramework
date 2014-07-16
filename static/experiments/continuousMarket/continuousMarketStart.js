@@ -10,7 +10,8 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		bidProjections: [],
 		askProjections: [],
 		hover: false,
-		allocation: false
+		allocation: false,
+		selected: false
 	};
 
 	$scope.accept = {
@@ -103,6 +104,26 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 
 		} else if($scope.config.canAsk && isValidAsk(price, qty)) {
 			$scope.ask = {price: price, qty: -qty};
+		}
+		
+		var selectedOffer = false;
+		$.each($scope.offers, function (key, offer) {
+			console.log("Offer is: ", offer, "price = ", price, "qty = ", qty);
+			if (Math.abs(Math.abs(offer.price) - Math.abs(price)) < 0.2 &&
+				Math.abs(Math.abs(offer.qty) - Math.abs(qty)) < 0.2) {
+				$scope.openOffer(offer);
+				selectedOffer = true;
+			}
+		});
+
+		if ($scope.selected && selectedOffer == false) {
+			if (Math.abs($scope.selected.qty - qty) < 0.2 &&
+				Math.abs($scope.selected.price - price) < 0.2) {
+				$scope.submitBid();
+				$scope.submitAsk();
+			} else $scope.selected = {qty:qty , price:price};
+		} else {
+			if (selectedOffer == false) $scope.selected = {qty:qty , price:price};
 		}
 	});
 
@@ -376,7 +397,8 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 			bidProjections: '=',
 			askProjections: '=',
 			allocation: '=',
-			hover: '='
+			hover: '=',
+			selected: '='
 		},
 		template: "<svg version='1.1'></svg>",
 		link: function($scope, element, attrs) {
@@ -385,7 +407,8 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				scales = {},
 				referenceValues,
 				mouseDown,
-				dragging = false;
+				dragging = false,
+				snappedOntoPoint;
 
 			var xMin, xMax, yMin, yMax;
 
@@ -466,6 +489,15 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				.attr("class", "hover-point")
 				.attr("r", 5);
 			var hoverCurve = d3.rw.indifferenceCurve();
+			
+			var selectedContainer = baseLayer.append("g")
+				.attr("class", "selected-container");
+			var selectedText = selectedContainer.append("text")
+				.attr("class", "selected-text");
+			var selectedPoint = selectedContainer.append("circle")
+				.attr("class", "selected-point")
+				.attr("r", 5);
+			var selectedCurve = d3.rw.indifferenceCurve(); 
 
 			plot.on("click", function() {
 				var position = d3.mouse(this);
@@ -478,8 +510,14 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				var position = d3.mouse(this);
 				$scope.$apply(function() {
 					mouseDown = {x: scales.offsetToX(position[0]), y: scales.offsetToY(position[1])};
+					if (snappedOntoPoint != 'none') {}
+					else if ((mouseDown.x - $scope.allocation.x >= 0 && mouseDown.y - $scope.allocation.y < 0) ||
+							 (mouseDown.x - $scope.allocation.x < 0 && mouseDown.y - $scope.allocation.y >= 0)) {
+						$scope.selected = mouseDown;
+					}
 				});
 			});
+			
 			plot.on("mouseup", function() {
 				$scope.$apply(function() {
 					mouseDown = false;
@@ -503,7 +541,45 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 						to = angular.copy(values);
 						onDrag();
 					} else {
-						$scope.hover = values;
+						if (Math.abs($scope.selected.x - values.x) < 0.2 &&
+							Math.abs($scope.selected.y - values.y) < 0.2) {
+							$scope.hover = $scope.selected;
+							$(".selected-container").css('fill', 'black');
+							$(".selected-container > .indifference-curve").css('stroke', 'black');
+							snappedOntoPoint = 'selected';
+						} else {
+							var container = bidProjectionContainer;
+							var connectors = container.selectAll('.projection-connector').data($scope.bidProjections || []);
+							snappedOntoPoint = 'none';
+							connectors
+								.each(function(projection) {
+									if (Math.abs(projection.x - values.x) < 0.2 &&
+										Math.abs(projection.y - values.y) < 0.2) {
+										$scope.hover = projection;
+										$(".hover-container > .indifference-curve").css('stroke', 'black');
+										snappedOntoPoint = 'offer';
+									}
+								});
+							connectors.exit().remove();
+							container = askProjectionContainer;
+							connectors = container.selectAll('.projection-connector').data($scope.askProjections || []);
+							connectors
+								.each(function(projection) {
+									if (Math.abs(projection.x - values.x) < 0.2 &&
+										Math.abs(projection.y - values.y) < 0.2) {
+										$scope.hover = projection;
+										$(".hover-container > .indifference-curve").css('stroke', 'black');
+										snappedOntoPoint = 'offer';
+									}
+								});
+							connectors.exit().remove();
+							if (snappedOntoPoint == 'none') {
+								$scope.hover = values;
+								$(".selected-container").css('fill', 'grey');
+								$(".selected-container > .indifference-curve").css('stroke', 'grey');
+								$(".hover-container > .indifference-curve").css('stroke', 'grey');
+							}
+						} 
 					}
 				});
 			});
@@ -543,6 +619,7 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 				}, true);
 				$scope.$watch("allocation", redrawAllocation, true);
 				$scope.$watch("hover", redrawHoverCurve, true);
+				$scope.$watch("selected", redrawSelectedCurve, true);
 			});
 
 			function generateScales() {
@@ -701,6 +778,11 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 					.xScale(scales.xIndexToOffset)
 					.yScale(scales.yIndexToOffset);
 				redrawHoverCurve($scope.hover);
+				
+				selectedCurve.grid(utilityGrid)
+					.xScale(scales.xIndexToOffset)
+					.yScale(scales.yIndexToOffset);
+				redrawSelectedCurve($scope.selected);
 			}
 
 			function redrawAllocation(allocation) {
@@ -793,6 +875,35 @@ Redwood.directive("svgPlot", ['$timeout', 'AsyncCallManager', function($timeout,
 					hoverContainer.call(hoverCurve.value(utility));
 
 					hoverContainer.attr("visibility", "visible");
+
+				}
+
+			}
+			
+			function redrawSelectedCurve(selected) {
+				if(!$scope.config) {
+					return;
+				}
+				
+				if(!selected) {
+					selectedContainer.attr("visibility", "hidden");
+				} else {
+
+					var xOffset = scales.xToOffset(selected.x);
+					var yOffset = scales.yToOffset(selected.y);
+
+					var utility = $scope.config.utilityFunction(selected.x, selected.y);
+
+					selectedText
+						.attr("x", xOffset + 10)
+						.attr("y", yOffset - 10)
+						.text("[" + utility.toFixed(2) + "]");
+
+					selectedPoint.attr("cx", xOffset).attr("cy", yOffset);
+
+					selectedContainer.call(selectedCurve.value(utility));
+
+					selectedContainer.attr("visibility", "visible");
 
 				}
 
