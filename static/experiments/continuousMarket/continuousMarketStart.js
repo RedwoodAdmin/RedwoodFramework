@@ -22,9 +22,9 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		if(isValidBid($scope.bid.price, $scope.bid.qty)) {
 			var y = $scope.allocation.y - ($scope.bid.price * $scope.bid.qty);
 			var x = $scope.allocation.x + $scope.bid.qty;
-			$scope.plotModel.hover = {x: x, y: y};
+			$scope.plotModel.selected = {x: x, y: y};
 		} else {
-			$scope.plotModel.hover = false;
+			$scope.plotModel.selected = false;
 		}
 	};
 
@@ -41,9 +41,9 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		if(isValidAsk($scope.ask.price, -$scope.ask.qty)) {
 			var y = $scope.allocation.y + ($scope.ask.price * $scope.ask.qty);
 			var x = $scope.allocation.x - $scope.ask.qty;
-			$scope.plotModel.hover = {x: x, y: y};
+			$scope.plotModel.selected = {x: x, y: y};
 		} else {
-			$scope.plotModel.hover = false;
+			$scope.plotModel.selected = false;
 		}
 	};
 
@@ -63,7 +63,7 @@ Redwood.controller("SubjectCtrl", ["$compile", "$rootScope", "$scope", "$timeout
 		if(offer.qty > 0 && !$scope.config.canSell) return;
 		var y = $scope.allocation.y + (offer.price * offer.qty);
 		var x = $scope.allocation.x - offer.qty;
-		$scope.plotModel.hover = {x: x, y: y};
+		$scope.plotModel.selected = {x: x, y: y};
 	};
 
 	$scope.openOffer = function(offer) {
