@@ -225,7 +225,9 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 	rs.next_period = function(delay_secs) {
 		delay_secs = delay_secs || 0;
 		rs._enable_messaging = false;
-		rs.timeout(function(){rs.trigger("_next_period");}, delay_secs * 1000);
+		rs.timeout(function(){
+			rw.send('_next_period');
+		}, delay_secs * 1000);
 	};
 
 	rs.on("_next_period", function() {
@@ -247,46 +249,6 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 	rw.on_sync_complete(function() {
 		rs.is_realtime = true;
 	});
-
-	/*rs._when_live_callbacks = {};
-	rs.when_live = function(key, f) {
-		if(rw.__sync__.in_progress) {
-			rs._when_live_callbacks[key] = f;
-			rs.on("_cancel_" + key, function(){
-				delete rs._when_live_callbacks[key];
-			});
-		} else {
-			$timeout(f, 0);
-		}
-	};
-	rs.cancel = function(key) {
-		rs.trigger("_cancel_" + key);
-	};
-	rw.on_sync_complete(function() {
-		for(var key in rs._when_live_callbacks) {
-			rs._when_live_callbacks[key]();
-		}
-	});*/
-
-	/*rs._when_realtime_callbacks = {};
-	rs.when_realtime = function(f, delay_ms) {
-		delay_ms = delay_ms || 0;
-		var key = Object.size(rs._when_realtime_callbacks);
-		if(rw.__sync__.in_progress) {
-			rs._when_realtime_callbacks[key] = {f: f, delay: delay_ms};
-		} else {
-			$timeout(function() {
-				f();
-			}, delay_ms);
-		}
-	};
-	rw.on_sync_complete(function() {
-		for(var key in rs._when_realtime_callbacks) {
-			$timeout(function() {
-				rs._when_realtime_callbacks[key].f();
-			}, rs._when_realtime_callbacks[key].delay);
-		}
-	});*/
 
 	rs._delayIfNotRealtime = function(f) {
 		if(rw.__sync__.in_progress) {
