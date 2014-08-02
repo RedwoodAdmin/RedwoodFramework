@@ -236,6 +236,14 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 		rw.set_period(rs.period + 1);
 	});
 
+	rs.exclude = function() {
+		var lastGroup = rs._group;
+		angular.forEach(rw.groups, function(group) {
+			lastGroup = Math.max(group, lastGroup);
+		});
+		rw.set_group(lastGroup + 1, rs.user_id);
+		rs._send('excluded', true, {period: 0, group: lastGroup + 1});
+	};
 	rs.finish = function(delay_secs) {
 		delay_secs = delay_secs || 0;
 		rs.timeout(function(){rs.trigger("_finish");}, delay_secs * 1000);

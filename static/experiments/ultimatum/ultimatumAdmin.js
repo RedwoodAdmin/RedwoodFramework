@@ -1,10 +1,5 @@
 Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($rootScope, $scope, ra) {
 
-	var ROLE = {
-		P: 0,
-		R: 1
-	};
-
 	var Display = { //Display controller
 
 		initialize: function() {
@@ -147,10 +142,6 @@ Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($root
 	});
 
 	ra.on("start_session", function() {
-		var answer = ra.configs[0].num_circles;//Math.round(Math.random() * 100 + 50);
-		ra.trigger("answer", answer);
-		$scope.estimates = {};
-
 		ra.start_session();
 	});
 
@@ -160,47 +151,6 @@ Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($root
 
 	ra.on("resume", function() {
 		ra.resume();
-	});
-
-	ra.on("answer", function(value) {
-		$scope.answer = value;
-	});
-
-	ra.recv("estimation", function(sender, value) {
-		$scope.estimates[sender] = value;
-		if(!ra.subjects.firstWhere(function() {
-			return isNullOrUndefined($scope.estimates[this]);
-		})) {
-			ra.trigger("assign_roles");
-		}
-	});
-
-	ra.on("assign_roles", function() {
-		$scope.roles = {};
-		var subjects = [];
-		for(var i = 0, l = ra.subjects.length; i < l; i++) {
-			subjects.push(ra.subjects[i]);
-		}
-		subjects.sort(function(a,b) {
-			return Math.abs($scope.answer - $scope.estimates[a]) - Math.abs($scope.answer - $scope.estimates[b]);
-		});
-		var remainders = subjects.length % 2;
-		remainders += (((subjects.length - remainders) / 2) % ra.configs[0].k) * 2;
-		for(var i = 0, l = (subjects.length - remainders); i < l; i++) {
-			ra.set(subjects[i], "rank", i);
-			if(i < l/2) {
-				ra.set(subjects[i], "role", ROLE.P);
-			} else {
-				ra.set(subjects[i], "role", ROLE.R);
-			}
-		}
-		for(var j = i, l = subjects.length; j < l; j++) {
-			ra.set_group(2, subjects[j]);
-			ra.__send__("excluded", true, subjects[j], 0, 2);
-			//ra.__send__("__set_points__", true, subjects[j], 0, 2);
-			//ra.set_period(ra.configs.length + 1, subjects[j])
-		}
-		ra.trigger("roles_assigned");
 	});
 
 }]);

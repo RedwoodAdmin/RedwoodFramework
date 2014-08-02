@@ -2,6 +2,11 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 
 	$scope.IMAGE_URL = IMAGE_URL;
 
+	var ROLE = {
+		P: 0,
+		R: 1
+	};
+
 	$scope.state = {};
 
 	rs.on_load(function() {
@@ -12,12 +17,11 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		$scope.$P = $scope.config.showP ? $scope.config.$P : 'P';
 
 		$scope.state.loaded = true;
+
 	});
 
 	rs.on("ready", function() {
 		$scope.state.ready = true;
-
-		$("#answer").text($scope.answer);
 		drawPlot();
 		rs.timeout(function() {
 			rs.trigger("time_up");
@@ -35,16 +39,52 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 	$scope.submit = function(estimate) {
 		var intRegex = /^\d+$/;
 		if(intRegex.test(estimate)) {
-			rs.trigger("submit", parseInt(estimate));
+			rs.trigger("estimate", parseInt(estimate));
 		} else {
 			alert("Please enter a positive integer");
 		}
 	};
 
-	rs.on("submit", function(value) {
+	rs.on("estimate", function(value) {
 		$scope.estimate = value;
 		$scope.state.submitted = true;
+
+		rs.synchronizationBarrier('submitted').then(function() {
+			assignRoles();
+		});
 	});
+
+	function assignRoles() {
+		var correctAnswer = rs.configs[0].num_circles;
+		var subjects = rs.subjects
+			.map(function(subject) {
+				return {
+					user_id: subject.user_id,
+					estimate: subject.get('estimate')
+				};
+			})
+			.sort(function(a, b) {
+				return Math.abs(correctAnswer - a.estimate) - Math.abs(correctAnswer - b.estimate);
+			});
+		var rank = subjects.indexOf(subjects.filter(function(subject) {
+			return subject.user_id == rs.user_id;
+		})[0]);
+		var numRemainders = subjects.length % 2;
+		numRemainders += (((subjects.length - numRemainders) / 2) % rs.configs[0].k) * 2;
+
+		rs.set("rank", rank);
+		if(rank < (subjects.length - numRemainders) / 2) {
+			rs.set("role", ROLE.P);
+			rs.next_period();
+		} else if(rank < (subjects.length - numRemainders)) {
+			rs.set("role", ROLE.R);
+			rs.next_period();
+		} else {
+			rs.add_points(rs.config.$R);
+			rs.exclude();
+			rs.finish();
+		}
+	}
 
 	function drawPlot() {
 		var opts = {
@@ -53,13 +93,13 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		};
 
 		var data = [];
-		for(var i = 0, l = $scope.answer; i < l; i++) {
+		for(var i = 0, l = rs.configs[0].num_circles; i < l; i++) {
 			data.push([Math.random(), Math.random()]);
 		}
 
 		var dataset = [];
 		dataset.push({
-			data: data, //plot account
+			data: data,
 			lines: { show: false },
 			points: { show: true },
 			hoverable: false
@@ -67,17 +107,5 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 
 		$.plot("#plot", dataset, opts);
 	}
-
-	rs.recv("answer", function(sender, value) {
-		$scope.answer = value;
-	});
-
-	rs.on("submit", function(value) {
-		rs.send("estimation", value);
-	});
-
-	rs.recv("roles_assigned", function() {
-		rs.next_period();
-	});
 
 }]);
