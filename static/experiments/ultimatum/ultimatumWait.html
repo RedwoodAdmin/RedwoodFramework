@@ -1,0 +1,95 @@
+<div ng-controller="SubjectCtrl">
+
+	<div class="navbar navbar-fixed-top container">
+		<div class="navbar navbar-default" style="margin-bottom: 0;">
+			<div class="navbar-brand" href="#">Economics Experiment</div>
+			<ul class="nav navbar-nav">
+				<li class="active">
+					<a>User ID: <span>{{$root.user_id}}</span></a>
+				</li>
+			</ul>
+			<div class="navbar-right">
+
+			</div>
+		</div>
+	</div>
+
+
+	<div class="container">
+		<div class="row">
+			<div class="col-lg-12">
+				<div ng-hide="state.loaded">Waiting for experiment to start...</div>
+				<div ng-show="state.loaded && !state.ready">
+					<p>Welcome to the experiment!</p>
+					<p style="font-weight:bold;">Please read these instructions before you continue</p>
+					<p>
+					<ul>
+						<li>You must have registered at ORSEE before you login and participate in this experiment. If you haven't done that, please
+							contact the experimenter.</li>
+						<li>Please do not use your browser's BACK, FORWARD or REFRESH/RELOAD buttons during the experiment. If you encounter a
+							technical difficulty please contact the experimenter.</li>
+						<li>If you have any questions, please raise your hand and one of the experimenters will approach you <strong>privately.</strong></li>
+					</ul></p>
+					<p><strong>Procedure:</strong></p>
+					<p>When you start the experiment (by clicking Ready below) you will first participate in a visual perception contest.
+						The top half (approximately) of participants that perform better in the contest will be assigned to be Proposers and the
+						remaining half (approximately) will be assigned to be Responders. If you have performed poorly in the contest, you
+						might not continue to the second part of the experiment at all (depending on the number of participants in your session).</p>
+					<p>If you become a Proposer you will receive a $<span>{{$P}}</span> base payment and earn the right to make offers of the sort:
+						How much of an additional $<span>{{config.maxX}}</span> bonus, would you like to offer an anonymous Responder?
+						You are free to decide on the offers: they could be identical or different - it is totally up to you.
+						Each offer must be a value between $<span>{{config.minX}}</span> and $<span>{{config.maxX}}</span>.</p>
+					<p>If you become a Responder you will receive a $<span>{{$R}}</span> base payment and will then receive several offers from different anonymous Proposers.
+						For each offer you will have the choice to ACCEPT or REJECT.</p>
+					<p>The offering process is divided into <span>{{config.k}}</span> rounds and several offers will be made to different anonymous Responders each round.
+						After all rounds are complete, each Proposer will have interacted with each Responder exactly once. During each round the Proposer will receive feedback
+						on whether each offer was accepted or rejected and can use this information to influence their offers in the next round.</p>
+					<p><strong>Payment:</strong></p>
+					<p>Each participant will receive their base payment plus a possible bonus of between <span>{{config.minX}}</span> and <span>{{config.maxX}}</span> dollars.
+						In order to calculate the bonus, a single offer from a single round will be randomly selected.
+						Let the value of this offer be $X. If the offer was accepted then the Proposer will receive a bonus of <span>{{config.maxX}}</span>-X dollars
+						and the Responder will receive a bonus of X dollars. However, if the offer was rejected, then neither the Proposer nor the Responder will receive any bonus.
+						In other words: each participant will receive a bonus (in addition to the base payment) according to only one of the offers (s)he made or received
+						and only if that particular offer was accepted.</p>
+					<p><strong>Anonymity:</strong></p>
+					<p>Every effort is being made to guarantee that your identity and choice remain confidential: participants do not know the roles of
+						other participants and have no way to identify an offer with Proposer or a acceptance/rejection with a Responder. Furthermore, the
+						payment will be prepared in sealed envelopes by another experimenter who cannot identify the participants in the experiment.</p>
+					<hr/>
+					<p><strong>Estimation Game:</strong></p>
+					<p>When you click the "Ready" button on this page, you will see a plot that looks like the one shown below. </p>
+					<img ng-src="{{IMAGE_URL}}/plot.png">
+					<p>As you can see, there are 10 circles scattered within the box. On the next picture there will be many more circles.
+						Your job will be to guess how many there are in the picture that follows. The catch is you will only have 5 seconds to see the box.
+						Those whose guesses are closest to the correct number of circles will earn the right to become Proposers.</p>
+					<button class="btn btn-success" ng-click="ready()">Ready</button>
+				</div>
+
+				<div ng-show="state.ready" class="row">
+					<div class="col-lg-3">
+						<div class="well sidebar-nav">
+							<ul class="nav nav-list">
+								<li>Estimation Game</li>
+							</ul>
+						</div>
+					</div>
+					<div class="col-lg-9">
+						<div ng-hide="state.timeUp">
+							<div id="plot" style="width:600px; height:400px;"></div>
+						</div>
+						<div ng-show="state.timeUp">
+							<div>
+								<form ng-submit="submit(estimate)">
+									<label for="estimate">Answer: </label><input id="estimate" ng-model="estimate" required ng-pattern="/^\d+$/" ng-disabled="state.submitted"/>
+									<button type="submit" ng-disabled="state.submitted" class="btn btn-success">Submit</button>
+								</form>
+							</div>
+							<div ng-show="state.submitted"><span class="label label-info">Waiting for other players...</span></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
