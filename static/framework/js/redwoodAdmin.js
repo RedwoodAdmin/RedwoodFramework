@@ -1,5 +1,5 @@
 
-Redwood.factory('Admin', ['$q', '$rootScope', 'RedwoodCore', function($q, $rootScope, rw) {
+Redwood.factory('Admin', ['$q', '$timeout', '$rootScope', 'RedwoodCore', function($q, $timeout, $rootScope, rw) {
 
 	var ra = {};
 
@@ -265,6 +265,10 @@ Redwood.factory('Admin', ['$q', '$rootScope', 'RedwoodCore', function($q, $rootS
 		messageDeferals['__refresh_subjects__'].push(deferred);
 		return deferred.promise;
 	};
+
+	$timeout(function() {
+		rw.__connect__();
+	});
 
 	return ra;
 

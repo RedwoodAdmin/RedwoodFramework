@@ -241,8 +241,9 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 		angular.forEach(rw.groups, function(group) {
 			lastGroup = Math.max(group, lastGroup);
 		});
-		rw.set_group(lastGroup + 1, rs.user_id);
-		rs._send('excluded', true, {period: 0, group: lastGroup + 1});
+		rs._group = lastGroup + 1;
+		rw.set_group(rs._group, rs.user_id);
+		rs.set('excluded', true);
 	};
 	rs.finish = function(delay_secs) {
 		delay_secs = delay_secs || 0;
@@ -452,6 +453,10 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 	rs.on_load = function(f) {
 		rs._on_load_callbacks.push(f);
 	};
+
+	$timeout(function() {
+		rw.__connect__();
+	});
 
 	return rs;
 }]);
