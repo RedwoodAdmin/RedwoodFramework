@@ -6,6 +6,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		if(rs.self.get("excluded")) {
 			$scope.state.excluded = true;
 		} else {
+			$scope.state.included = true;
 			$scope.responses = rs.self.get("responses");
 			$scope.selectedOffer = rs.self.get('selected_offer');
 			$scope.response = $scope.responses[$scope.selectedOffer.round][$scope.selectedOffer.index];

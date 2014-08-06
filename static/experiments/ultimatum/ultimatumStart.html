@@ -59,7 +59,7 @@
 									</tr>
 								</table>
 								<div style="margin-top: 20px;">
-									<button class="btn btn-success" ng-click="propose()">Send Offers</button>
+									<button class="btn btn-success" ng-click="propose()" ng-enabled="state.showInput">Send Offers</button>
 								</div>
 							</div>
 							<div ng-show="state.role === ROLES.R">
@@ -100,7 +100,7 @@
 									</tr>
 								</table>
 								<div style="margin-top: 20px;">
-									<button class="btn btn-success" ng-click="respond()">Send Responses</button>
+									<button class="btn btn-success" ng-click="respond()" ng-enabled="state.showInput">Send Responses</button>
 								</div>
 							</div>
 						</div>
