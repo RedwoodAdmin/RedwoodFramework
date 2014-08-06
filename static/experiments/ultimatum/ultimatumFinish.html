@@ -1,0 +1,67 @@
+<div ng-controller="SubjectCtrl">
+
+	<div class="navbar navbar-fixed-top container">
+		<div class="navbar navbar-default" style="margin-bottom: 0;">
+			<div class="navbar-brand" href="#">Interactive Decision Making Experiment</div>
+			<ul class="nav navbar-nav">
+				<li class="active">
+					<a>User ID: <span>{{$root.user_id}}</span></a>
+				</li>
+			</ul>
+			<div class="navbar-right">
+
+			</div>
+		</div>
+	</div>
+
+	<div class="container">
+		<div class="row">
+			<div class="col-lg-3">
+				<div class="well sidebar-nav">
+					<ul class="nav nav-list">
+						<li>Payment: <span class="badge badge-success">{{totalPoints | number:2}}</span></li>
+					</ul>
+				</div>
+			</div>
+			<div class="col-lg-9">
+				<div ng-hide="state.excluded">
+					<div class="row">
+						<div class="col-lg-9">
+							<div class="row" ng-repeat="round in responses">
+								<div class='col-lg-9'>
+									Round: {{$index + 1}}
+									<table class="table table-bordered table-condensed">
+										<tr><th>Offer</th><th>Value</th><th>Response</th></tr>
+										<tr ng-repeat="offer in round" ng-class="{'success': $parent.$index === selectedOffer.round && $index === selectedOffer.index}">
+											<td>{{$index + 1}}</td><td>${{offer.value}}</td>
+											<td ng-class="{'text-success': offer.response, 'text-danger': !offer.response}">{{offer.response | response}}</td>
+										</tr>
+									</table>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<hr/>
+						<div class="col-lg-9">
+							The offer that counts for payment is offer number {{selectedOffer.index + 1}}
+							in round {{selectedOffer.round + 1}} of ${{response.value | number:2}}
+							which was {{response.response | response}}.
+							Therefore your payment is ${{totalPoints | number:2}}.
+						</div>
+					</div>
+				</div>
+				<div ng-show="state.excluded">
+					Unfortunately your estimate was not close enough to become a Proposer or a Responder.
+					You will receive a $<span>{{totalPoints | number:2}}</span> base payment and will not partake in the second round of the experiment.
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-lg-12">
+				<hr/>
+			</div>
+		</div>
+	</div>
+
+</div>

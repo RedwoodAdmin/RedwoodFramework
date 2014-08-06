@@ -1,10 +1,142 @@
-<!DOCTYPE html>
-<html>
-<head lang="en">
-	<meta charset="UTF-8">
-	<title></title>
-</head>
-<body>
+<div ng-controller="SubjectCtrl">
 
-</body>
-</html>
+	<div class="navbar navbar-fixed-top container">
+		<div class="navbar navbar-default" style="margin-bottom: 0;">
+			<div class="navbar-brand" href="#">Interactive Decision Making Experiment</div>
+			<ul class="nav navbar-nav">
+				<li class="active">
+					<a>User ID: <span>{{$root.user_id}}</span></a>
+				</li>
+			</ul>
+			<div class="navbar-right">
+				<div class="navbar-text">Round: <span>{{round}} of {{config.k}}</span></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="container">
+		<div class="row">
+			<div class="col-lg-3">
+				<div class="well sidebar-nav">
+					<ul class="nav nav-list">
+						<li>Base Payments</li>
+						<li>You:<span class="pull-right">{{basePay}}</span></li>
+						<li><span>{{oppositeRole | role}}</span>:<span class="pull-right">{{oppositeBasePay}}</span></li>
+						<li>&nbsp</li>
+						<li>Min Offer:<span class="pull-right">{{config.minX}}</span></li>
+						<li>Max Offer:<span class="pull-right">{{config.maxX}}</span></li>
+					</ul>
+				</div>
+			</div>
+			<div class="col-lg-9">
+				<div class="row">
+					<div class="col-lg-9">
+						<p>Responses:</p>
+						<table class="table table-bordered table-condensed">
+							<thead>
+							<tr><th>Offer Value</th><th>Response</th></tr>
+							</thead>
+							<tbody>
+								<tr ng-repeat="response in allResponses">
+									<td>{{response.value | number:2}}</td>
+									<td>{{response.response | response}}</td>
+								</tr>
+							</tbody>
+						</table>
+						<hr />
+					</div>
+					<div id="input-container" class="col-lg-9">
+						<span ng-show="state.message" class="label label-info">{{state.message}}</span>
+						<div ng-show="state.showInput">
+							<div ng-show="state.role === ROLES.P">
+								<p>Propose offers:</p>
+								<table class="table table-bordered table-condensed">
+									<tr><th>Offer</th><th>Amount</th><td>Select amount...</td></tr>
+									<tr ng-repeat="subject in oppositeGroup">
+										<td style="width: 8%;">{{$index + 1}}</td>
+										<td style="width: 12%;"><span class="badge badge-success">${{offerInputs[$index]}}</span></td>
+										<td style="width: 80%;"><slider></slider></td>
+									</tr>
+								</table>
+								<div style="margin-top: 20px;">
+									<button class="btn btn-success" ng-click="propose()">Send Offers</button>
+								</div>
+							</div>
+							<div ng-show="state.role === ROLES.R">
+								<p>Respond to offers:</p>
+								<table class="table table-bordered table-condensed" style="vertical-align:middle;">
+									<tr><th>Offer</th><th>Amount</th><th>Response</th><th>You</th><th>Proposer</th></tr>
+									<tr ng-repeat-start="offer in offers">
+										<td rowspan="2" style="width: 10%;">{{$index + 1}}</td>
+										<td rowspan="2" style="width :20%;"><span class="badge">${{offer.value | number:2}}</span></td>
+										<td style="width: 20%;">
+											<input id="accept-{{$index}}" type="radio" ng-model="responseInputs[$index]" value="accept" />
+											<label for="accept-{{$index}}" style="display: inline-block;"><span class="label label-success">Accept</span></label>
+										</td>
+										<td style="width: 25%;">
+											Bonus: <span class="badge alert-success pull-right">${{offer.value | number:2}}</span>
+											<br/>
+											Total: <span class="badge alert-success pull-right">${{($R + offer.value) | number:2}}</span>
+										</td>
+										<td style="width: 25%;">
+											Bonus: <span class="badge alert-success pull-right">${{(config.maxX - offer.value) | number:2}}</span>
+											<br/>
+											Total: <span class="badge alert-success pull-right"><span ng-show="config.showP">${{(offer.$P + config.maxX - offer.value) | number:2}}</span><span ng-hide="config.showP">??</span></span>
+										</td>
+									</tr>
+									<tr ng-repeat-end>
+										<td>
+											<input id="reject-{{$index}}" type="radio" ng-model="responseInputs[$index]" value="reject" />
+											<label for="reject-{{$index}}" style="display: inline-block;"><span class="label label-danger">Reject</span></label>
+										</td>
+										<td>
+											Bonus: <span class="badge alert-danger pull-right">${{(0) | number:2}}</span>
+											<br/>
+											Total: <span class="badge alert-danger pull-right">${{$R | number:2}}</span>
+										</td>
+										<td>Bonus: <span class="badge alert-danger pull-right">${{(0) | number:2}}</span>
+											<br/>
+											Total: <span class="badge alert-danger pull-right"><span ng-show="config.showP">${{offer.$P | number:2}}</span><span ng-hide="config.showP">??</span></span></td>
+									</tr>
+								</table>
+								<div style="margin-top: 20px;">
+									<button class="btn btn-success" ng-click="respond()">Send Responses</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<hr style="margin-top:20px;"/>
+			<div class="col-lg-12" id="footer">
+				<div ng-show="state.role === ROLES.P">
+					<p>Congratulations! Your estimate was close enough to become a Proposer.<br/>
+						You will receive a $<span>{{$P}}</span> base payment and have earned the right to make offers:<br/>
+						<i>How much of an additional $<span>{{config.maxX}}</span> bonus, would you like to offer an anonymous Responder?</i><br/>
+						You are free to decide on the offers: they could be identical or different - it is totally up to you.
+						Each offer must be a value between $<span>{{config.minX}}</span> and $<span>{{config.maxX}}</span>.</p>
+					<p><strong>Payment:</strong></p>
+					<p>Each participant will receive their base payment plus a possible bonus of between <span>{{config.minX}}</span> and <span>{{config.maxX}}</span> dollars.
+						In order to calculate the bonus, a single offer from a single round will be randomly selected.
+						Let the value of this offer be $X. If the offer was accepted then the Proposer will receive a bonus of <span>{{config.maxX}}</span>-X dollars
+						and the Responder will receive a bonus of X dollars. However, if the offer was rejected, then neither the Proposer nor the Responder will receive any bonus.</p>
+				</div>
+				<div ng-show="state.role === ROLES.R">
+					<p>Your estimate was not close enough to become a Proposer so you are now a Responder.<br/>
+						You will receive a $<span>{{$R}}</span> base payment and will now receive several offers from different anonymous Proposers.
+						They have earned the right to offer you a proportion of an additional $<span>{{config.maxX}}</span> bonus.
+						Each offer will be a value <strong>between $<span>{{config.minX}}</span> and $<span>{{config.maxX}}</span>.</strong><br/>
+						For each offer you will have the choice to ACCEPT or REJECT.</p>
+					<p><strong>Payment:</strong></p>
+					<p>Each participant will receive their base payment plus a possible bonus of between <span>{{config.minX}}</span> and <span>{{config.maxX}}</span> dollars.
+						In order to calculate the bonus, a single offer from a single round will be randomly selected.
+						Let the value of this offer be $X. If the offer was accepted then the Proposer will receive a bonus of <span>{{config.maxX}}</span>-X dollars
+						and the Responder will receive a bonus of X dollars. However, if the offer was rejected, then neither the Proposer nor the Responder will receive any bonus.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
