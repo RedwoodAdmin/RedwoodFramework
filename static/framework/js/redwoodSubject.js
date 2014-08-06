@@ -236,6 +236,15 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 		rw.set_period(rs.period + 1);
 	});
 
+	rs.exclude = function() {
+		var lastGroup = rs._group;
+		angular.forEach(rw.groups, function(group) {
+			lastGroup = Math.max(group, lastGroup);
+		});
+		rs._group = lastGroup + 1;
+		rw.set_group(rs._group, rs.user_id);
+		rs.set('excluded', true);
+	};
 	rs.finish = function(delay_secs) {
 		delay_secs = delay_secs || 0;
 		rs.timeout(function(){rs.trigger("_finish");}, delay_secs * 1000);
@@ -444,6 +453,10 @@ Redwood.factory("RedwoodSubject", ["$q", "$rootScope", "$timeout", "RedwoodCore"
 	rs.on_load = function(f) {
 		rs._on_load_callbacks.push(f);
 	};
+
+	$timeout(function() {
+		rw.__connect__();
+	});
 
 	return rs;
 }]);

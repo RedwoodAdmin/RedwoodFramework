@@ -472,8 +472,6 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 		}
 	});
 
-	rw.__connect__();
-
 	return rw;
 
 }]);
