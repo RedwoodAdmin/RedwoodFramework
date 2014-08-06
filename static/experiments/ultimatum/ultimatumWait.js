@@ -80,8 +80,8 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 			rs.set("role", ROLE.R);
 			rs.next_period();
 		} else {
-			rs.add_points(rs.config.$R);
 			rs.exclude();
+			rs.add_points(rs.configs[0].$R);
 			rs.finish();
 		}
 	}

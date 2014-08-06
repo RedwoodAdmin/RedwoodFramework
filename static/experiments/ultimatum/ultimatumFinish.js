@@ -1,5 +1,7 @@
 Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", function($rootScope, $scope, rs) {
 
+	$scope.state = {};
+
 	rs.on_load(function() {
 		if(rs.self.get("excluded")) {
 			$scope.state.excluded = true;
