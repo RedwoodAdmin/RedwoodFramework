@@ -156,10 +156,10 @@ d3.rw = d3.rw || {};
             // This will not work with multiple heatmaps in one document
             var canvasDataURL = canvas[0][0].toDataURL("image/png");
 
-            var heatmapImage = g.select("#heatmap-image");
+            var heatmapImage = g.select(".heatmap-image");
             if (heatmapImage.empty()) {
                 heatmapImage = g.append("image")
-                    .attr("id", "heatmap-image")
+                    .attr("class", "heatmap-image")
                     .attr("xlink:href", "")
                     .attr("width", width)
                     .attr("height", height);
