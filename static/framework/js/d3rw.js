@@ -125,36 +125,40 @@ d3.rw = d3.rw || {};
 
         function heatMap(g) {
 
-            var data = [],
-                sum,
-				dx = (xScale(1) - xScale(0)) > 0 ? 0 : 1,
-				dy = (yScale(1) - yScale(0)) > 0 ? 0 : 1;
+            // create offscreen canvas
+            var canvas = d3.select("#d3rw-canvas")
+            if (canvas.empty()) {
+                canvas = d3.select("body").append("canvas")
+                    .attr("id", "d3rw-canvas")
+                    .style("display", "none");
+            }
 
+            canvas.attr("width", grid.length).attr("height", grid.length);
+            var context = canvas[0][0].getContext("2d");
+
+            // write grid values to canvas
             for(var x = 0; x < grid.length - 1; x++) {
                 for(var y = 0; y < grid.length - 1; y++) {
-                    sum = grid[x][y] + grid[x + 1][y] + grid[x + 1][y + 1] + grid[x][y + 1];
-                    data.push({x: xScale(x + dx), y: yScale(y + dy), color: colorScale(sum / 4)});
+                    var sum = grid[x][y] + grid[x + 1][y] + grid[x + 1][y + 1] + grid[x][y + 1];
+                    context.fillStyle = colorScale(sum / 4);
+                    context.fillRect(x, grid.length-y-1, 1, 1);
                 }
             }
 
-			var width = Math.abs(xScale(1) - xScale(0)),
-				height = Math.abs(yScale(1) - yScale(0));
+            // copy canvas to svg
+            // This will not work with multiple heatmaps in one document
+            var canvasDataURL = canvas[0][0].toDataURL("image/png");
 
-            var rectangles = g.selectAll(".heatmap-rect").data(data);
+            var heatmapImage = g.select("#heatmap-image");
+            if (heatmapImage.empty()) {
+                heatmapImage = g.append("image")
+                    .attr("id", "heatmap-image")
+                    .attr("xlink:href", "")
+                    .attr("width", xScale(grid.length)-xScale(0))
+                    .attr("height", yScale(0)-yScale(grid.length));
+            }
+            heatmapImage.attr("xlink:href", canvasDataURL);
 
-            rectangles.enter()
-                .append("rect")
-                .attr("class", "heatmap-rect");
-
-            rectangles
-                .attr("x", function(d) { return d.x; })
-                .attr("y", function(d) { return d.y; })
-                .attr("width", width)
-                .attr("height", height)
-                .style("stroke", function(d) { return d.color; })
-                .style("fill", function(d) { return d.color; });
-
-            rectangles.exit().remove();
         }
 
         heatMap.grid = function(_) {
