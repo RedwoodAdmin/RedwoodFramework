@@ -402,6 +402,13 @@ func (l *Listener) match(session *Session, msg *Msg) bool {
 	if l.subject.name == "listener" {
 		return true
 	}
+	// keeping this for backwards compatibility reasons
+	// otherwise admin doesn't receive everything
+	// needed for redwood 2 admin pause controls and other things
+	if l.subject.name == "admin" {
+		return true
+	}
+	//
 	control :=
 		msg.Key == "__register__" ||
 			msg.Key == "__pause__" ||
@@ -434,7 +441,7 @@ func send(session *Session, msg *Msg, l *Listener, remove chan *Listener) {
 	}
 }
 
-func newRouter() (r *Router) {
+func newRouter(redis_host string, redis_db int) (r *Router) {
 	r = new(Router)
 	r.messages = make(chan *Msg, 100)
 	r.newListeners = make(chan *Listener, 100)
@@ -447,6 +454,7 @@ func newRouter() (r *Router) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("loading %d sessions from redis", len(sessions))
 	for _, session_bytes := range sessions {
 		key := string(session_bytes)
 		components := strings.Split(key, ":")
@@ -487,12 +495,10 @@ func newRouter() (r *Router) {
 	return r
 }
 
-var redis_host string
-var redis_db int
-
 func main() {
-
 	var help bool
+	var redis_host string
+	var redis_db int
 	var port int
 	flag.BoolVar(&help, "h", false, "Print this usage message")
 	flag.StringVar(&redis_host, "redis", "127.0.0.1:6379", "Redis server")
@@ -505,9 +511,14 @@ func main() {
 		return
 	}
 
+	StartUp(redis_host, redis_db, port, nil)
+}
+
+func StartUp(redis_host string, redis_db, port int, ready chan bool) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	router := newRouter()
+	router := newRouter(redis_host, redis_db)
 	go router.route()
+	log.Println("router routing")
 	websocketHandler := websocket.Handler(func(c *websocket.Conn) {
 		router.handle_ws(c)
 		c.Close()
@@ -515,6 +526,10 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		websocketHandler.ServeHTTP(w, r)
 	})
+	log.Printf("listening on port %d", port)
+	if ready != nil {
+		ready <- true
+	}
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	if err != nil {
 		log.Panicln(err)
