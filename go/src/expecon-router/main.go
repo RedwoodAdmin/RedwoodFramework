@@ -17,8 +17,12 @@ import (
 
 /*
 	Redis Schema
-		sessions - set of integer session ids
-		session:<instance>:<id int> - list of json-encoded messages
+		"sessions"
+		"session:%s:%d" instance, id
+		"session_objs:%s:%d" instance, id
+		"period:%s:%d:%s" instance, id
+		"group:%s:%d:%s" instance, id
+		"page:%s:%d:%s" instance, id
 */
 
 type Router struct {
@@ -31,6 +35,7 @@ type Router struct {
 }
 
 type Session struct {
+	db_key            string
 	router            *Router
 	instance          string
 	id                int
@@ -50,6 +55,7 @@ func (r *Router) get_session(instance string, id int) *Session {
 	session, exists := instance_sessions[id]
 	if !exists {
 		session = &Session{
+			db_key:            fmt.Sprintf("session:%s:%d", instance, id),
 			router:            r,
 			instance:          instance,
 			id:                id,
@@ -164,7 +170,7 @@ type Msg struct {
 	ClientTime  uint64
 	Key         string
 	Value       interface{}
-	ack					chan bool
+	ack         chan bool
 }
 
 func (m *Msg) save(db *redis.Client) {
@@ -306,21 +312,33 @@ func (r *Router) handle_msg(msg *Msg) {
 		subject.period = int(v["period"].(float64))
 		msg.Period = int(v["period"].(float64))
 		period_key := fmt.Sprintf("period:%s:%d:%s", session.instance, session.id, msg.Sender)
-		period_string := fmt.Sprintf("%d", subject.period)
-		err = r.db.Set(period_key, []byte(period_string))
-		if err == nil {
-			_, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(period_key))
+		period_bytes := fmt.Sprintf("%d", subject.period)
+		if err = r.db.Set(period_key, []byte(period_bytes)); err != nil {
+			panic(err)
+		}
+		if _, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(period_key)); err != nil {
+			panic(err)
 		}
 	case "__set_group__":
 		v := msg.Value.(map[string]interface{})
 		subject := session.subjects[msg.Sender]
 		subject.group = int(v["group"].(float64))
 		msg.Group = int(v["group"].(float64))
+		group_key := fmt.Sprintf("group:%s:%d:%s", session.instance, session.id, msg.Sender)
+		group_bytes := fmt.Sprintf("%d", subject.group)
+		if err = r.db.Set(group_key, []byte(group_bytes)); err != nil {
+			panic(err)
+		}
+		if _, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(group_key)); err != nil {
+			panic(err)
+		}
 	case "__set_page__":
 		page_key := fmt.Sprintf("page:%s:%d:%s", session.instance, session.id, msg.Sender)
-		err = r.db.Set(page_key, []byte(msg.Value.(map[string]interface{})["page"].(string)))
-		if err == nil {
-			_, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(page_key))
+		if err = r.db.Set(page_key, []byte(msg.Value.(map[string]interface{})["page"].(string))); err != nil {
+			panic(err)
+		}
+		if _, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(page_key)); err != nil {
+			panic(err)
 		}
 	case "__reset__":
 		session.reset()
@@ -382,9 +400,6 @@ func (l *Listener) sync() {
 
 func (l *Listener) match(session *Session, msg *Msg) bool {
 	if l.subject.name == "listener" {
-		return true
-	}
-	if l.subject.name == "admin" {
 		return true
 	}
 	control :=
