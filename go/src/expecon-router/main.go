@@ -92,6 +92,17 @@ func (s *Session) get_subject(name string) *Subject {
 	return subject
 }
 
+func (s *Session) set_session_object(obj_key string, obj_bytes []byte) error {
+	var err error
+	if err = s.router.db.Set(obj_key, []byte(obj_bytes)); err != nil {
+		return err
+	}
+	if _, err = s.router.db.Sadd(fmt.Sprintf("session_objs:%s:%d", s.instance, s.id), []byte(obj_key)); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Session) recv(msg *Msg) {
 	if msg.Key != "__reset__" && msg.Key != "__delete__" {
 		msg.save(s.router.db)
@@ -309,10 +320,8 @@ func (r *Router) handle_msg(msg *Msg) {
 		msg.Period = int(v["period"].(float64))
 		period_key := fmt.Sprintf("period:%s:%d:%s", session.instance, session.id, msg.Sender)
 		period_bytes := fmt.Sprintf("%d", subject.period)
-		if err = r.db.Set(period_key, []byte(period_bytes)); err != nil {
-			panic(err)
-		}
-		if _, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(period_key)); err != nil {
+
+		if err = session.set_session_object(period_key, []byte(period_bytes)); err != nil {
 			panic(err)
 		}
 	case "__set_group__":
@@ -322,22 +331,27 @@ func (r *Router) handle_msg(msg *Msg) {
 		msg.Group = int(v["group"].(float64))
 		group_key := fmt.Sprintf("group:%s:%d:%s", session.instance, session.id, msg.Sender)
 		group_bytes := fmt.Sprintf("%d", subject.group)
-		if err = r.db.Set(group_key, []byte(group_bytes)); err != nil {
-			panic(err)
-		}
-		if _, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(group_key)); err != nil {
+
+		if err = session.set_session_object(group_key, []byte(group_bytes)); err != nil {
 			panic(err)
 		}
 	case "__set_page__":
 		page_key := fmt.Sprintf("page:%s:%d:%s", session.instance, session.id, msg.Sender)
-		if err = r.db.Set(page_key, []byte(msg.Value.(map[string]interface{})["page"].(string))); err != nil {
-			panic(err)
-		}
-		if _, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(page_key)); err != nil {
+		page_bytes := []byte(msg.Value.(map[string]interface{})["page"].(string))
+
+		if err = session.set_session_object(page_key, page_bytes); err != nil {
 			panic(err)
 		}
 	case "__set_config__":
 		session.last_cfg = msg
+		config_key := fmt.Sprintf("config:%s:%d:%s", session.instance, session.id, msg.Sender)
+		config_bytes, err := json.Marshal(msg)
+		if err != nil {
+			panic(err)
+		}
+		if err = session.set_session_object(config_key, config_bytes); err != nil {
+			panic(err)
+		}
 	case "__reset__":
 		session.reset()
 	case "__delete__":
@@ -403,7 +417,7 @@ func (l *Listener) sync() {
 	l.recv <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_end__", Nonce: session.nonce}
 }
 
-func (msg *Msg) identicalTo(otherMsg *Msg) bool {
+func (msg *Msg) identical_to(otherMsg *Msg) bool {
 	// Test equality of all properties except for the ack channel
 	// some of these comparisons may not be necessary
 	return otherMsg != nil &&
@@ -444,7 +458,7 @@ func (l *Listener) match(session *Session, msg *Msg) bool {
 	same_period := msg.Period == l.subject.period || msg.Period == 0
 	same_group := msg.Group == l.subject.group || msg.Group == 0
 	last_state_update_msg := session.last_state_update[msg.Key][msg.Sender]
-	is_relevant := !msg.StateUpdate || msg.identicalTo(last_state_update_msg)
+	is_relevant := !msg.StateUpdate || msg.identical_to(last_state_update_msg)
 
 	return control || (session_state && is_relevant && (is_admin || (same_period && same_group))) || (same_period && same_group && is_relevant)
 }
@@ -529,6 +543,17 @@ func newRouter(redis_host string, redis_db int) (r *Router) {
 					panic(err)
 				}
 				session.subjects[subject].group = group
+			case "config":
+				config_key := fmt.Sprintf("config:%s:%d:%s", instance, id, subject)
+				config_bytes, err := r.db.Get(config_key)
+				if err != nil {
+					panic(err)
+				}
+				var config Msg
+				if err = json.Unmarshal(config_bytes, &config); err != nil {
+					panic(err)
+				}
+				session.last_cfg = &config
 			}
 		}
 	}
