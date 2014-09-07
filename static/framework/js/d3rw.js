@@ -133,8 +133,8 @@ d3.rw = d3.rw || {};
                     .style("display", "none");
             }
 
-            var width = xScale(grid.length)-xScale(0);
-            var height = yScale(0)-yScale(grid.length);
+            var width = xScale(grid.length) - xScale(0);
+            var height = yScale(0) - yScale(grid.length);
             var cellWidth = Math.ceil(Math.abs(xScale(1) - xScale(0)));
             var cellHeight = Math.ceil(Math.abs(yScale(1) - yScale(0)));
             var dx = (xScale(1) - xScale(0)) > 0 ? 0 : 1;
@@ -148,12 +148,11 @@ d3.rw = d3.rw || {};
                 for(var y = 0; y < grid.length - 1; y++) {
                     var sum = grid[x][y] + grid[x + 1][y] + grid[x + 1][y + 1] + grid[x][y + 1];
                     context.fillStyle = colorScale(sum / 4);
-                    context.fillRect(xScale(x+dx), yScale(y+dy), cellWidth, cellHeight);
+                    context.fillRect(xScale(x + dx), yScale(y + dy), cellWidth, cellHeight);
                 }
             }
 
             // copy canvas to svg
-            // This will not work with multiple heatmaps in one document
             var canvasDataURL = canvas[0][0].toDataURL("image/png");
 
             var heatmapImage = g.select(".heatmap-image");
