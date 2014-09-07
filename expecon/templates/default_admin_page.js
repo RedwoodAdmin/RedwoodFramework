@@ -67,12 +67,12 @@ Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($root
 				var status = $("#router-status");
 				if (connected) {
 					status.text("Router Connected");
-					status.removeClass("badge-important");
-					status.addClass("badge-success");
+					status.removeClass("alert-danger");
+					status.addClass("alert-success");
 				} else {
 					status.text("Router Disconnected");
-					status.removeClass("badge-success");
-					status.addClass("badge-important");
+					status.removeClass("alert-success");
+					status.addClass("alert-danger");
 				}
 			});
 
