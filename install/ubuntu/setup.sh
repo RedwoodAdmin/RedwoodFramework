@@ -5,6 +5,7 @@ sudo apt-get install golang
 sudo apt-get install libapache2-mod-wsgi
 sudo apt-get install redis-server
 sudo apt-get install python-redis
+sudo apt-get install sendmail # needed for default logging settings
 sudo apt-get install git
 sudo apt-get install python-pip
 
