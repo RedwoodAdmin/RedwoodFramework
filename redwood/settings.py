@@ -4,7 +4,7 @@ import json
 
 CWD = os.path.abspath(os.path.dirname(__file__))
 
-app_config = json.load(open(os.path.join(CWD, 'apache/config.json')))
+app_config = json.load(open(os.path.join(CWD, '../apache/config.json')))
 
 URL_PREFIX = app_config['URL_PREFIX']
 LOGIN_URL = URL_PREFIX + '/login/'
@@ -100,7 +100,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
 )
 
-ROOT_URLCONF = 'urls'
+ROOT_URLCONF = 'redwood.urls'
 
 TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
@@ -129,7 +129,6 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django.contrib.admin',
     'django.contrib.admindocs',
-    'django.contrib.markup',
     'expecon',
     'reversion',
 )
