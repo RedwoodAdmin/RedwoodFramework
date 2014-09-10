@@ -2,9 +2,9 @@
 import os
 import json
 
-CWD = os.path.abspath(os.path.dirname(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
-app_config = json.load(open(os.path.join(CWD, '../apache/config.json')))
+app_config = json.load(open(os.path.join(BASE_DIR, 'apache/config.json')))
 
 URL_PREFIX = app_config['URL_PREFIX']
 LOGIN_URL = URL_PREFIX + '/login/'
@@ -13,7 +13,7 @@ DEBUG = app_config['DEBUG']
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
-	('LEEPS', 'leepslab@gmail.com'),
+	('LEEPS', 'mcjee@ucsc.edu'),
 )
 
 MANAGERS = ADMINS
@@ -46,7 +46,7 @@ USE_L10N = True
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
 # Example: "/home/media/media.lawrence.com/media/"
-MEDIA_ROOT = os.path.join(CWD, 'media')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash.
@@ -57,7 +57,7 @@ MEDIA_URL = URL_PREFIX + '/media/'
 # Don't put anything in this directory yourself; store your static files
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.
 # Example: "/home/media/media.lawrence.com/static/"
-STATIC_ROOT = os.path.join(CWD, 'static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # URL prefix for static files.
 # Example: "http://media.lawrence.com/static/"
@@ -107,8 +107,7 @@ TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
-    #os.path.join(CWD, 'templates'),
-    os.path.join(CWD, 'templates'),
+    os.path.join(BASE_DIR, 'templates'),
 )
 
 TEMPLATE_CONTEXT_PROCESSORS = (
