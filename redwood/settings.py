@@ -13,7 +13,7 @@ DEBUG = app_config['DEBUG']
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
-	('LEEPS', 'mcjee@ucsc.edu'),
+	('Name', 'example@example.com'),
 )
 
 MANAGERS = ADMINS
