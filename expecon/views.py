@@ -1,7 +1,7 @@
 from models import *
 from django.contrib.sites.models import Site
 from django.shortcuts import render_to_response, get_object_or_404
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.template import RequestContext, Context, loader
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
@@ -78,7 +78,7 @@ def session_download(request, session):
 	timestamp = datetime.datetime.fromtimestamp(queue[0]['Time'] / 1e9)
 	rows = queue_to_csv(queue)
 	w.writerows(rows)
-	response = HttpResponse(s.getvalue(), mimetype='text/csv')
+	response = HttpResponse(s.getvalue(), content_type='text/csv')
 	s.close()
 	response['Content-Disposition'] = 'attachment; filename=%s-%s.csv' % (session.experiment.name, timestamp)
 	return response
@@ -147,7 +147,7 @@ def download_experiment(request, experiment):
 	experiment = get_object_or_404(Experiment, pk=experiment)
 	objs = [experiment]
 	objs += experiment.page_set.all()
-	response = HttpResponse(serializers.serialize("json", objs), mimetype='application/json')
+	response = HttpResponse(serializers.serialize("json", objs), content_type='application/json')
 	response['Content-Disposition'] = 'attachment; filename=%s.json' % (experiment.name,)
 	return response
 	
