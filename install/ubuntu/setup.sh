@@ -14,48 +14,46 @@ cd Django-1.4.2
 sudo python setup.py install
 
 # Clone Redwood from GitHub repository
-cd /var
-sudo mkdir www
+sudo mkdir /var/www
 cd /var/www
 sudo git clone https://github.com/RedwoodAdmin/RedwoodFramework.git redwood
 
-# Pull Redwood apache WSGI config from wiki
 cd redwood
-sudo wget https://github.com/RedwoodAdmin/RedwoodResources/raw/master/ServerSetup/Linux/apache.tar.gz
-sudo tar xzvf apache.tar.gz
-
-# Compile expecon-router
-cd go
-mkdir pkg
-mkdir bin
-sudo echo "GOPATH=\"/var/www/redwood/go\"" >> /etc/environment
-export GOPATH="/var/www/redwood/go"
-cd src/redis-go
-sudo go install
-cd ../websocket
-sudo go install
-cd ../expecon-router
-sudo go install
-
-# Create log.txt file
-cd ../../..
+sudo mkdir go/pkg
+sudo mkdir go/bin
 sudo touch log.txt
 
+sudo chmod -R a+rw .
+sudo chown -R www-data .
+
+sudo tar xzvf install/ubuntu/resources/apache.tar.gz
+
+# Compile expecon-router
+export GOPATH="/var/www/redwood/go"
+cd go/src/redis-go
+go install
+cd ../websocket
+go install
+cd ../expecon-router
+go install
+
 # Initialize database, move static files to apache-accessible folder
+cd /var/www/redwood
 sudo python manage.py syncdb
 sudo python manage.py collectstatic
 
-# Make /var/www/redwood owned by apache (www-data), and readable by group ubuntu (Amazon EC2 login)
-#sudo chown -R www-data:ubuntu .
-sudo chown -R www-data .
-sudo chmod -R g+rw .
-
 # Overwrite old apache configuration file with new one pulled from wiki
 cd /etc/apache2/sites-enabled
-sudo wget https://github.com/RedwoodAdmin/RedwoodResources/raw/master/ServerSetup/Linux/redwood.conf -O 000-default
+sudo cp /var/www/redwood/install/ubuntu/resources/redwood.conf ./000-default.conf
+sudo cp 000-default.conf 000-default
+
+# Create log.txt file
+sudo chmod -R a+rw /var/www/redwood
+sudo chown -R www-data /var/www/redwood
 
 # Create upstart job to automatically start expecon-router on startup
 cd /etc/init
-sudo wget https://github.com/RedwoodAdmin/RedwoodResources/raw/master/ServerSetup/Linux/redwood-router.conf
+sudo cp /var/www/redwood/install/ubuntu/resources/redwood-router.conf ./redwood-router.conf
 
 # Restart instance
+sudo reboot
