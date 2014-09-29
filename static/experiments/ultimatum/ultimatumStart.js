@@ -21,12 +21,13 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 			}
 		});
 		if(invalid) {
-			alert("Please use the slider to specify offer number " + invalid);
+			alert("Please use the slider to specify a value for offer number " + invalid);
 		} else {
 			$scope.oppositeGroup.forEach(function(subject, i) {
 				rs.trigger("offer", {to: subject, value: Number($scope.offerInputs[i])});
 			});
 			$scope.state.showInput = false;
+			$scope.state.message = "Awaiting responses...";
 		}
 	};
 
@@ -43,7 +44,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 			$scope.oppositeGroup.forEach(function(subjectId, i) {
 				rs.trigger("response", {to: $scope.offers[i].from, value: $scope.offers[i].value, response: $scope.responseInputs[i] == 'accept'});
 			});
-			$scope.mesage = 'Awaiting offers...';
+			$scope.state.showInput = false;
 		}
 	};
 
@@ -95,7 +96,10 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 
 			if($scope.round > $scope.k) {
 				if(rs.user_id === rs.subjects[0].user_id) {
-					var match = pickMatch();
+					var match = {
+						round: Math.floor(Math.random() * $scope.k),
+						index: Math.floor(Math.random() * $scope.oppositeGroup.length)
+					};
 					rs.trigger("match", match);
 				}
 				return;
@@ -215,25 +219,6 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", fun
 		}
 		return groups;
 	}
-
-	var pickMatch = function() {
-		var result = {};
-		var random = Math.random();
-		for(var round = 0; round < $scope.k; round++) { //TODO: Change to use actual formula instead of loop
-			if(random >= (1 - ((round + 1) / $scope.k))) {
-				result.round = round;
-				break;
-			}
-		}
-		random = Math.random();
-		for(var i = 0; i < $scope.oppositeGroup.length; i++) { //TODO: Change to use actual formula instead of loop
-			if(random >= (1 - ((i + 1) / $scope.oppositeGroup.length))) {
-				result.index = i;
-				break;
-			}
-		}
-		return result;
-	};
 
 	var allocateRewards = function(match) {
 		if(role == ROLES.P) {

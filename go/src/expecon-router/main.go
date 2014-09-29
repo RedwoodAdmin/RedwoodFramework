@@ -2,7 +2,6 @@ package main
 
 import (
 	"websocket"
-	"container/list"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -17,8 +16,12 @@ import (
 
 /*
 	Redis Schema
-		sessions - set of integer session ids
-		session:<instance>:<id int> - list of json-encoded messages
+		"sessions"
+		"session:%s:%d" instance, id
+		"session_objs:%s:%d" instance, id
+		"period:%s:%d:%s" instance, id
+		"group:%s:%d:%s" instance, id
+		"page:%s:%d:%s" instance, id
 */
 
 type Router struct {
@@ -31,14 +34,15 @@ type Router struct {
 }
 
 type Session struct {
+	db_key            string
 	router            *Router
 	instance          string
 	id                int
 	nonce             string
 	listeners         map[string]*Listener
-	queue             *list.List
 	subjects          map[string]*Subject
 	last_state_update map[string]map[string]*Msg
+	last_cfg          *Msg
 }
 
 func (r *Router) get_session(instance string, id int) *Session {
@@ -50,12 +54,12 @@ func (r *Router) get_session(instance string, id int) *Session {
 	session, exists := instance_sessions[id]
 	if !exists {
 		session = &Session{
+			db_key:            fmt.Sprintf("session:%s:%d", instance, id),
 			router:            r,
 			instance:          instance,
 			id:                id,
 			nonce:             uuid(),
 			listeners:         make(map[string]*Listener),
-			queue:             list.New(),
 			subjects:          make(map[string]*Subject),
 			last_state_update: make(map[string]map[string]*Msg),
 		}
@@ -80,7 +84,6 @@ func (s *Session) get_subject(name string) *Subject {
 			Period:   0,
 			Group:    0,
 		}
-		s.queue.PushBack(msg)
 		msg.save(s.router.db)
 		for id := range s.listeners {
 			send(s, msg, s.listeners[id], s.router.removeListeners)
@@ -89,9 +92,19 @@ func (s *Session) get_subject(name string) *Subject {
 	return subject
 }
 
+func (s *Session) set_session_object(obj_key string, obj_bytes []byte) error {
+	var err error
+	if err = s.router.db.Set(obj_key, []byte(obj_bytes)); err != nil {
+		return err
+	}
+	if _, err = s.router.db.Sadd(fmt.Sprintf("session_objs:%s:%d", s.instance, s.id), []byte(obj_key)); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *Session) recv(msg *Msg) {
 	if msg.Key != "__reset__" && msg.Key != "__delete__" {
-		s.queue.PushBack(msg)
 		msg.save(s.router.db)
 	}
 	for id := range s.listeners {
@@ -101,14 +114,6 @@ func (s *Session) recv(msg *Msg) {
 
 func (s *Session) reset() {
 	s.nonce = uuid()
-	var last_cfg *Msg
-	for n := s.queue.Front(); n != nil; n = n.Next() {
-		m := n.Value.(*Msg)
-		if m.Key == "__set_config__" {
-			last_cfg = m;
-		}
-	}
-	s.queue.Init()
 	session_objs_key := fmt.Sprintf("session_objs:%s:%d", s.instance, s.id)
 	session_objs, _ := s.router.db.Smembers(session_objs_key)
 	for i := range session_objs {
@@ -120,11 +125,12 @@ func (s *Session) reset() {
 	session_key := fmt.Sprintf("session:%s:%d", s.instance, s.id)
 	s.router.db.Del(session_key)
 	s.router.db.Srem("sessions", []byte(session_key))
-	if last_cfg != nil {
-		last_cfg.Nonce = s.nonce
-		last_cfg.ack = make(chan bool, 1)
-		s.router.handle_msg(last_cfg)
-		<-last_cfg.ack
+	// replay last config
+	if s.last_cfg != nil {
+		s.last_cfg.Nonce = s.nonce
+		s.last_cfg.ack = make(chan bool, 1)
+		s.router.handle_msg(s.last_cfg)
+		<-s.last_cfg.ack
 	}
 }
 
@@ -164,7 +170,7 @@ type Msg struct {
 	ClientTime  uint64
 	Key         string
 	Value       interface{}
-	ack					chan bool
+	ack         chan bool
 }
 
 func (m *Msg) save(db *redis.Client) {
@@ -266,10 +272,17 @@ func (r *Router) handle_ws(c *websocket.Conn) {
 			v := msg.Value.(map[string]interface{})
 			period := int(v["period"].(float64))
 			msgs := make([]*Msg, 0)
-			for n := session.queue.Front(); n != nil; n = n.Next() {
-				m := n.Value.(*Msg)
-				if period == 0 || m.Period == period {
-					msgs = append(msgs, m)
+			msg_bytes, err := session.router.db.Lrange(session.db_key, 0, -1)
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, b := range msg_bytes {
+				var msg Msg
+				if err = json.Unmarshal(b, &msg); err != nil {
+					log.Fatal(err)
+				}
+				if period == 0 || msg.Period == period {
+					msgs = append(msgs, &msg)
 				}
 			}
 			listener.recv <- &Msg{Key: "__get_period__", Value: msgs}
@@ -306,21 +319,38 @@ func (r *Router) handle_msg(msg *Msg) {
 		subject.period = int(v["period"].(float64))
 		msg.Period = int(v["period"].(float64))
 		period_key := fmt.Sprintf("period:%s:%d:%s", session.instance, session.id, msg.Sender)
-		period_string := fmt.Sprintf("%d", subject.period)
-		err = r.db.Set(period_key, []byte(period_string))
-		if err == nil {
-			_, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(period_key))
+		period_bytes := fmt.Sprintf("%d", subject.period)
+
+		if err = session.set_session_object(period_key, []byte(period_bytes)); err != nil {
+			panic(err)
 		}
 	case "__set_group__":
 		v := msg.Value.(map[string]interface{})
 		subject := session.subjects[msg.Sender]
 		subject.group = int(v["group"].(float64))
 		msg.Group = int(v["group"].(float64))
+		group_key := fmt.Sprintf("group:%s:%d:%s", session.instance, session.id, msg.Sender)
+		group_bytes := fmt.Sprintf("%d", subject.group)
+
+		if err = session.set_session_object(group_key, []byte(group_bytes)); err != nil {
+			panic(err)
+		}
 	case "__set_page__":
 		page_key := fmt.Sprintf("page:%s:%d:%s", session.instance, session.id, msg.Sender)
-		err = r.db.Set(page_key, []byte(msg.Value.(map[string]interface{})["page"].(string)))
-		if err == nil {
-			_, err = r.db.Sadd(fmt.Sprintf("session_objs:%s:%d", session.instance, session.id), []byte(page_key))
+		page_bytes := []byte(msg.Value.(map[string]interface{})["page"].(string))
+
+		if err = session.set_session_object(page_key, page_bytes); err != nil {
+			panic(err)
+		}
+	case "__set_config__":
+		session.last_cfg = msg
+		config_key := fmt.Sprintf("config:%s:%d:%s", session.instance, session.id, msg.Sender)
+		config_bytes, err := json.Marshal(msg)
+		if err != nil {
+			panic(err)
+		}
+		if err = session.set_session_object(config_key, config_bytes); err != nil {
+			panic(err)
 		}
 	case "__reset__":
 		session.reset()
@@ -371,22 +401,49 @@ func (r *Router) route() {
 func (l *Listener) sync() {
 	session := l.router.get_session(l.instance, l.session_id)
 	l.recv <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_start__", Nonce: session.nonce}
-	for n := session.queue.Front(); n != nil; n = n.Next() {
-		msg := n.Value.(*Msg)
-		if l.match(session, msg) {
-			l.recv <- msg
+	msg_bytes, err := session.router.db.Lrange(session.db_key, 0, -1)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, b := range msg_bytes {
+		var msg Msg
+		if err = json.Unmarshal(b, &msg); err != nil {
+			log.Fatal(err)
+		}
+		if l.match(session, &msg) {
+			l.recv <- &msg
 		}
 	}
 	l.recv <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_end__", Nonce: session.nonce}
+}
+
+func (msg *Msg) identical_to(otherMsg *Msg) bool {
+	// Test equality of all properties except for the ack channel
+	// some of these comparisons may not be necessary
+	return otherMsg != nil &&
+	       msg.Instance    == otherMsg.Instance &&
+	       msg.Session     == otherMsg.Session &&
+	       msg.Nonce       == otherMsg.Nonce &&
+	       msg.Sender      == otherMsg.Sender &&
+	       msg.Period      == otherMsg.Period &&
+	       msg.Group       == otherMsg.Group &&
+	       msg.StateUpdate == otherMsg.StateUpdate &&
+	       msg.Time        == otherMsg.Time &&
+	       msg.ClientTime  == otherMsg.ClientTime &&
+	       msg.Key         == otherMsg.Key
 }
 
 func (l *Listener) match(session *Session, msg *Msg) bool {
 	if l.subject.name == "listener" {
 		return true
 	}
+	// keeping this for backwards compatibility reasons
+	// otherwise admin doesn't receive everything
+	// needed for redwood 2 admin pause controls and other things
 	if l.subject.name == "admin" {
 		return true
 	}
+	//
 	control :=
 		msg.Key == "__register__" ||
 			msg.Key == "__pause__" ||
@@ -400,7 +457,9 @@ func (l *Listener) match(session *Session, msg *Msg) bool {
 	is_admin := l.subject.name == "admin"
 	same_period := msg.Period == l.subject.period || msg.Period == 0
 	same_group := msg.Group == l.subject.group || msg.Group == 0
-	is_relevant := !msg.StateUpdate || msg == session.last_state_update[msg.Key][msg.Sender]
+	last_state_update_msg := session.last_state_update[msg.Key][msg.Sender]
+	is_relevant := !msg.StateUpdate || msg.identical_to(last_state_update_msg)
+
 	return control || (session_state && is_relevant && (is_admin || (same_period && same_group))) || (same_period && same_group && is_relevant)
 }
 
@@ -419,7 +478,7 @@ func send(session *Session, msg *Msg, l *Listener, remove chan *Listener) {
 	}
 }
 
-func newRouter() (r *Router) {
+func newRouter(redis_host string, redis_db int) (r *Router) {
 	r = new(Router)
 	r.messages = make(chan *Msg, 100)
 	r.newListeners = make(chan *Listener, 100)
@@ -432,6 +491,7 @@ func newRouter() (r *Router) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("loading %d sessions from redis", len(sessions))
 	for _, session_bytes := range sessions {
 		key := string(session_bytes)
 		components := strings.Split(key, ":")
@@ -441,43 +501,69 @@ func newRouter() (r *Router) {
 			log.Fatal(err)
 		}
 		session := r.get_session(instance, id)
-		msgs, err := r.db.Lrange(key, 0, -1)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, b := range msgs {
-			var msg Msg
-			if err := json.Unmarshal(b, &msg); err != nil {
-				log.Fatal(err)
+
+		session_objs_key := fmt.Sprintf("session_objs:%s:%d", instance, id)
+		session_objs, _ := session.router.db.Smembers(session_objs_key)
+		for _, key := range session_objs {
+
+			components = strings.Split(string(key), ":")
+			key_type := components[0]
+			obj_instance := components[1]
+			obj_id, err := strconv.Atoi(components[2])
+			if err != nil {
+				panic(err)
 			}
-			switch msg.Key {
-			case "__register__":
-				session.subjects[msg.Sender] = &Subject{name: msg.Sender}
-			case "__set_period__":
-				session.subjects[msg.Sender].period = int(msg.Value.(map[string]interface{})["period"].(float64))
-			case "__set_group__":
-				session.subjects[msg.Sender].group = int(msg.Value.(map[string]interface{})["group"].(float64))
+			if obj_instance != instance || obj_id != id {
+				panic("session_objs has object with different instance/id")
 			}
-			if msg.StateUpdate {
-				last_msgs, exists := session.last_state_update[msg.Key]
-				if !exists {
-					last_msgs = make(map[string]*Msg)
-					session.last_state_update[msg.Key] = last_msgs
+			subject := components[3]
+			if session.subjects[subject] == nil {
+				session.subjects[subject] = &Subject{name: subject}
+			}
+			switch key_type {
+			case "period":
+				period_key := fmt.Sprintf("period:%s:%d:%s", instance, id, subject)
+				period_bytes, err := r.db.Get(period_key)
+				if err != nil {
+					panic(err)
 				}
-				last_msgs[msg.Sender] = &msg
+				period, err := strconv.Atoi(string(period_bytes))
+				if err != nil {
+					panic(err)
+				}
+				session.subjects[subject].period = period
+			case "group":
+				group_key := fmt.Sprintf("group:%s:%d:%s", instance, id, subject)
+				group_bytes, err := r.db.Get(group_key)
+				if err != nil {
+					panic(err)
+				}
+				group, err := strconv.Atoi(string(group_bytes))
+				if err != nil {
+					panic(err)
+				}
+				session.subjects[subject].group = group
+			case "config":
+				config_key := fmt.Sprintf("config:%s:%d:%s", instance, id, subject)
+				config_bytes, err := r.db.Get(config_key)
+				if err != nil {
+					panic(err)
+				}
+				var config Msg
+				if err = json.Unmarshal(config_bytes, &config); err != nil {
+					panic(err)
+				}
+				session.last_cfg = &config
 			}
-			session.queue.PushBack(&msg)
 		}
 	}
 	return r
 }
 
-var redis_host string
-var redis_db int
-
 func main() {
-
 	var help bool
+	var redis_host string
+	var redis_db int
 	var port int
 	flag.BoolVar(&help, "h", false, "Print this usage message")
 	flag.StringVar(&redis_host, "redis", "127.0.0.1:6379", "Redis server")
@@ -490,9 +576,14 @@ func main() {
 		return
 	}
 
+	StartUp(redis_host, redis_db, port, nil)
+}
+
+func StartUp(redis_host string, redis_db, port int, ready chan bool) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	router := newRouter()
+	router := newRouter(redis_host, redis_db)
 	go router.route()
+	log.Println("router routing")
 	websocketHandler := websocket.Handler(func(c *websocket.Conn) {
 		router.handle_ws(c)
 		c.Close()
@@ -500,6 +591,10 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		websocketHandler.ServeHTTP(w, r)
 	})
+	log.Printf("listening on port %d", port)
+	if ready != nil {
+		ready <- true
+	}
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	if err != nil {
 		log.Panicln(err)

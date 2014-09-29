@@ -8,7 +8,7 @@
 		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodCore.js"></script>
 		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodHelpers.js"></script>
 		<script type="text/javascript" src="{{ STATIC_URL }}framework/js/redwoodAdmin.js"></script>
-		<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}framework/css/bootstrap.min.css"></link>
+		<link type="text/css" rel="stylesheet" href="{{ STATIC_URL }}framework/css/bootstrap-3.1.1.min.css"></link>
 		<script type="text/javascript">
 			{{ js }}
 		</script>
@@ -17,45 +17,46 @@
 		</style>
 	</head>
 	<body ng-controller="AdminCtrl">
-		<div class="navbar navbar-fixed-top container">
-			<div class="navbar-inner">
+		<div class="container">
+
+			<div class="navbar navbar-default" role="navigation">
 				<div class="container-fluid">
-					<div class="brand" href="#">Economics Experiment</div>
-					<div class="nav-collapse collapse">
-						<p class="navbar-text pull-right">Administrator</p>
+					<div class="navbar-header">
+						<a class="navbar-brand">Economics Experiment</a>
+					</div>
+					<div class="collapse navbar-collapse" id="admin-navbar-collapse">
+						<ul class="nav navbar-nav navbar-right">
+							<li><a>Administrator</a></li>
+						</ul>
 					</div>
 				</div>
 			</div>
-		</div>
 
-		<div class="container">
 			<div class="row">
-				<div class="span3">
+				<div class="col-md-3">
 					<div class="row">
-						<div class="span3">
-							<div class="well sidebar-nav">
-								<ul class="nav nav-list">
-									<li><span id="router-status" class="badge badge-important"></span></li>
-								</ul>
-							</div>
+						<div class="col-md-12">
+							<div id="router-status" class="alert alert-danger"></div>
 						</div>
 					</div>
 					<div class="row">
-						<div class="span3">
-							<div class="well sidebar-nav">
-								<ul class="nav nav-list">
-									<li><a href="admin/payouts" target="_blank">View Payouts</a></li>
-									<li><a id="archive" href="#">Archive Session</a></li>
-									<li><a id="download" href="admin/download">Download Data</a></li>
-								</ul>
+						<div class="col-md-12">
+							<div class="panel panel-default">
+								<div class="panel-body">
+									<ul class="nav nav-pills nav-stacked">
+										<li><a href="admin/payouts" target="_blank">View Payouts</a></li>
+										<li><a id="archive" href="#">Archive Session</a></li>
+										<li><a id="download" href="admin/download">Download Data</a></li>
+									</ul>
+								</div>
 							</div>
 						</div>
 					</div>
 				</div>
-				<div class="span9">
+				<div class="col-md-9">
 					<div class="row">
-						<div class="span9">
-							<p>Subjects:</p>
+						<div class="col-md-12">
+							<h4>Subjects</h4>
 							<table class="table table-bordered table-condensed table-striped">
 								<thead>
 								<tr><th>ID</th><th>Group</th><th>Period</th><th style="width: 150px;"></th></tr>
@@ -66,12 +67,12 @@
 						</div>
 					</div>
 					<div class="row">
-						<div class="span6">
+						<div class="col-md-8">
 							<button id="start-session" class="btn btn-success">Start Session</button>
 							<button id="refresh-subjects" class="btn btn-info" title="Attempt recover by refreshing all subject browsers">Recover Session</button>
 							<button id="reset-session" class="btn btn-danger">Reset Session</button>
 						</div>
-						<div class="span3">
+						<div class="col-md-4">
 							<div class="pull-right">
 								<button id="pause-session" class="btn btn-warning" disabled="disabled">Pause</button>
 								<button id="resume-session" class="btn btn-primary" disabled="disabled">Resume</button>
@@ -80,10 +81,10 @@
 					</div>
 				</div>
 			</div>
+			<hr>
 			<div class="row">
-				<div class="span12">
-					<hr/>
-					<p>Configuration:</p>
+				<div class="col-md-12">
+					<h4>Configuration</h4>
 					<load-config></load-config>
 					<div style="overflow: auto;">
 						<table class="config table table-bordered table-striped table-condensed"></table>
