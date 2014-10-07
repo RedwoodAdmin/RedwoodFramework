@@ -184,6 +184,22 @@ func (m *Msg) save(db *redis.Client) {
 	}
 }
 
+func (msg *Msg) identical_to(otherMsg *Msg) bool {
+	// Test equality of all properties except for the ack channel
+	// some of these comparisons may not be necessary
+	return otherMsg != nil &&
+	       msg.Instance    == otherMsg.Instance &&
+	       msg.Session     == otherMsg.Session &&
+	       msg.Nonce       == otherMsg.Nonce &&
+	       msg.Sender      == otherMsg.Sender &&
+	       msg.Period      == otherMsg.Period &&
+	       msg.Group       == otherMsg.Group &&
+	       msg.StateUpdate == otherMsg.StateUpdate &&
+	       msg.Time        == otherMsg.Time &&
+	       msg.ClientTime  == otherMsg.ClientTime &&
+	       msg.Key         == otherMsg.Key
+}
+
 type SubjectRequest struct {
 	instance string
 	session  int
@@ -430,22 +446,6 @@ func (l *Listener) sync() {
 	}
 	sync_channel <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_end__", Nonce: session.nonce}
 	close(sync_channel)
-}
-
-func (msg *Msg) identical_to(otherMsg *Msg) bool {
-	// Test equality of all properties except for the ack channel
-	// some of these comparisons may not be necessary
-	return otherMsg != nil &&
-	       msg.Instance    == otherMsg.Instance &&
-	       msg.Session     == otherMsg.Session &&
-	       msg.Nonce       == otherMsg.Nonce &&
-	       msg.Sender      == otherMsg.Sender &&
-	       msg.Period      == otherMsg.Period &&
-	       msg.Group       == otherMsg.Group &&
-	       msg.StateUpdate == otherMsg.StateUpdate &&
-	       msg.Time        == otherMsg.Time &&
-	       msg.ClientTime  == otherMsg.ClientTime &&
-	       msg.Key         == otherMsg.Key
 }
 
 func (l *Listener) match(session *Session, msg *Msg) bool {
