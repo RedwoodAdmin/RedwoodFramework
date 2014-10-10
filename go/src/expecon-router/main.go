@@ -30,21 +30,6 @@ type SubjectRequest struct {
 	response chan *Subject
 }
 
-// send msg to the given Listener
-// If it fails for any reason, e is added to the remove queue.
-func send(session *Session, msg *Msg, l *Listener, remove chan *Listener) {
-	if l.match(session, msg) {
-		if remove != nil {
-			defer func() {
-				if err := recover(); err != nil {
-					remove <- l
-				}
-			}()
-		}
-		l.recv <- msg
-	}
-}
-
 func main() {
 	var help bool
 	var redis_host string

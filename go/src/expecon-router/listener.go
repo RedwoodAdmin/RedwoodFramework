@@ -16,6 +16,21 @@ type Listener struct {
     connection *websocket.Conn
 }
 
+// send msg to the given Listener
+// If it fails for any reason, e is added to the remove queue.
+func (l *Listener) send(session *Session, msg *Msg, remove chan *Listener) {
+    if l.match(session, msg) {
+        if remove != nil {
+            defer func() {
+                if err := recover(); err != nil {
+                    remove <- l
+                }
+            }()
+        }
+        l.recv <- msg
+    }
+}
+
 func (l *Listener) send_from_channel(channel <-chan *Msg) {
     go func() {
         e := json.NewEncoder(l.connection)
