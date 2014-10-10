@@ -15,8 +15,6 @@ type Listener struct {
     recv       chan *Msg
     encoder    *json.Encoder
     decoder    *json.Decoder
-    //decoder    json.Decoder
-    //connection *websocket.Conn
 }
 
 func NewListener(router *Router, instance string, session_id int, subject *Subject, connection *websocket.Conn) *Listener {
@@ -33,13 +31,14 @@ func NewListener(router *Router, instance string, session_id int, subject *Subje
 }
 
 // send msg to the given Listener
-// If it fails for any reason, e is added to the remove queue.
-func (l *Listener) send(session *Session, msg *Msg, remove chan *Listener) {
+// If it fails for any reason, l is added to the remove queue.
+func (l *Listener) Send(msg *Msg) {
+    session := l.router.get_session(l.instance, l.session_id)
     if l.match(session, msg) {
-        if remove != nil {
+        if l.router.removeListeners != nil {
             defer func() {
                 if err := recover(); err != nil {
-                    remove <- l
+                    l.router.removeListeners <- l
                 }
             }()
         }
@@ -124,6 +123,7 @@ func (l *Listener) sync() {
             log.Printf("Sync: %s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
         }
     }
+
     queueEndMessage := &Msg{
         Time: time.Now().UnixNano(),
         Key: "__queue_end__",

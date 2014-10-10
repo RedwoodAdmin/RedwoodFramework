@@ -35,7 +35,7 @@ func (s *Session) get_subject(name string) *Subject {
         }
         msg.save(s.router.db)
         for id := range s.listeners {
-            s.listeners[id].send(s, msg, s.router.removeListeners)
+            s.listeners[id].Send(msg)
         }
     }
     return subject
@@ -57,7 +57,7 @@ func (s *Session) recv(msg *Msg) {
         msg.save(s.router.db)
     }
     for id := range s.listeners {
-        s.listeners[id].send(s, msg, s.router.removeListeners)
+        s.listeners[id].Send(msg)
     }
 }
 
