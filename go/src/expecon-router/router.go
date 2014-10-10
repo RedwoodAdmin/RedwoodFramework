@@ -21,6 +21,88 @@ type Router struct {
     db              *redis.Client
 }
 
+func NewRouter(redis_host string, redis_db int) (r *Router) {
+    r = new(Router)
+    r.messages = make(chan *Msg, 100)
+    r.newListeners = make(chan *Listener, 100)
+    r.removeListeners = make(chan *Listener, 100)
+    r.requestSubject = make(chan *SubjectRequest, 100)
+    r.sessions = make(map[string]map[int]*Session)
+    r.db = &redis.Client{Addr: redis_host, Db: redis_db}
+    // populate the in-memory queues with persisted redis data
+    sessions, err := r.db.Smembers("sessions")
+    if err != nil {
+        log.Fatal(err)
+    }
+    log.Printf("loading %d sessions from redis", len(sessions))
+    for _, session_bytes := range sessions {
+        key := string(session_bytes)
+        components := strings.Split(key, ":")
+        instance := components[1]
+        id, err := strconv.Atoi(components[2])
+        if err != nil {
+            log.Fatal(err)
+        }
+        session := r.get_session(instance, id)
+
+        session_objs_key := fmt.Sprintf("session_objs:%s:%d", instance, id)
+        session_objs, _ := session.router.db.Smembers(session_objs_key)
+        for _, key := range session_objs {
+
+            components = strings.Split(string(key), ":")
+            key_type := components[0]
+            obj_instance := components[1]
+            obj_id, err := strconv.Atoi(components[2])
+            if err != nil {
+                panic(err)
+            }
+            if obj_instance != instance || obj_id != id {
+                panic("session_objs has object with different instance/id")
+            }
+            subject := components[3]
+            if session.subjects[subject] == nil {
+                session.subjects[subject] = &Subject{name: subject}
+            }
+            switch key_type {
+            case "period":
+                period_key := fmt.Sprintf("period:%s:%d:%s", instance, id, subject)
+                period_bytes, err := r.db.Get(period_key)
+                if err != nil {
+                    panic(err)
+                }
+                period, err := strconv.Atoi(string(period_bytes))
+                if err != nil {
+                    panic(err)
+                }
+                session.subjects[subject].period = period
+            case "group":
+                group_key := fmt.Sprintf("group:%s:%d:%s", instance, id, subject)
+                group_bytes, err := r.db.Get(group_key)
+                if err != nil {
+                    panic(err)
+                }
+                group, err := strconv.Atoi(string(group_bytes))
+                if err != nil {
+                    panic(err)
+                }
+                session.subjects[subject].group = group
+            case "config":
+                config_key := fmt.Sprintf("config:%s:%d:%s", instance, id, subject)
+                config_bytes, err := r.db.Get(config_key)
+                if err != nil {
+                    panic(err)
+                }
+                var config Msg
+                if err = json.Unmarshal(config_bytes, &config); err != nil {
+                    panic(err)
+                }
+                session.last_cfg = &config
+            }
+        }
+    }
+    return r
+}
+
 func (r *Router) get_session(instance string, id int) *Session {
     instance_sessions, exists := r.sessions[instance]
     if !exists {
