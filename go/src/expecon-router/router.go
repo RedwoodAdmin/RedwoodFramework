@@ -172,19 +172,14 @@ func (r *Router) handle_ws(c *websocket.Conn) {
     if subject == nil {
         log.Panicln("nil subject")
     }
-    listener := &Listener{
-        router:     r,
-        instance:   instance,
-        session_id: session_id,
-        subject:    subject,
-        recv:       make(chan *Msg, 100),
-        connection: c,
-    }
+
+    listener := NewListener(r, instance, session_id, subject, c)
     r.newListeners <- listener
     log.Printf("STARTED SYNC: %s\n", subject.name);
     listener.sync()
     log.Printf("FINISHED SYNC: %s\n", subject.name);
-    listener.send_from_channel(listener.recv)
+    listener.StartSendLoop()
+    //listener.send_from_channel(listener.recv)
     d := json.NewDecoder(c)
     for {
         var msg Msg

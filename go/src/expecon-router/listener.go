@@ -13,7 +13,22 @@ type Listener struct {
     session_id int
     subject    *Subject
     recv       chan *Msg
-    connection *websocket.Conn
+    encoder    *json.Encoder
+    //decoder    json.Decoder
+    //connection *websocket.Conn
+}
+
+func NewListener(router *Router, instance string, session_id int, subject *Subject, connection *websocket.Conn) *Listener {
+    listener := &Listener{
+        router:     router,
+        instance:   instance,
+        session_id: session_id,
+        subject:    subject,
+        recv:       make(chan *Msg, 100),
+        encoder:    json.NewEncoder(connection),
+        //decoder:
+    }
+    return listener;
 }
 
 // send msg to the given Listener
@@ -31,16 +46,15 @@ func (l *Listener) send(session *Session, msg *Msg, remove chan *Listener) {
     }
 }
 
-func (l *Listener) send_from_channel(channel <-chan *Msg) {
+func (l *Listener) StartSendLoop() {
     go func() {
-        e := json.NewEncoder(l.connection)
         for {
-            msg, ok := <- channel
+            msg, ok := <- l.recv
             if !ok {
                 return
             }
-            log.Printf("%s, %s, %d, %s from %p\n", msg.Sender, l.subject.name, msg.Period, msg.Key, channel);
-            if err := e.Encode(msg); err != nil {
+            log.Printf("%s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
+            if err := l.encoder.Encode(msg); err != nil {
                 return
             }
         }
@@ -49,11 +63,15 @@ func (l *Listener) send_from_channel(channel <-chan *Msg) {
 
 // push requested messages from queue to w, in between to fictitious start and end messages
 func (l *Listener) sync() {
-    sync_channel := make(chan *Msg)
-    l.send_from_channel(sync_channel)
-
     session := l.router.get_session(l.instance, l.session_id)
-    sync_channel <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_start__", Nonce: session.nonce}
+
+    queueStartMessage := &Msg{
+        Time: time.Now().UnixNano(),
+        Key: "__queue_start__",
+        Nonce: session.nonce,
+    }
+    l.encoder.Encode(queueStartMessage);
+
     msg_bytes, err := session.router.db.Lrange(session.db_key, 0, -1)
     if err != nil {
         log.Fatal(err)
@@ -64,11 +82,16 @@ func (l *Listener) sync() {
             log.Fatal(err)
         }
         if l.match(session, &msg) {
-            sync_channel <- &msg
+            l.encoder.Encode(&msg);
+            log.Printf("Sync: %s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
         }
     }
-    sync_channel <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_end__", Nonce: session.nonce}
-    close(sync_channel)
+    queueEndMessage := &Msg{
+        Time: time.Now().UnixNano(),
+        Key: "__queue_end__",
+        Nonce: session.nonce,
+    }
+    l.encoder.Encode(queueEndMessage);
 }
 
 func (l *Listener) match(session *Session, msg *Msg) bool {
