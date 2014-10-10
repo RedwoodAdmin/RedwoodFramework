@@ -175,48 +175,13 @@ func (r *Router) handle_ws(c *websocket.Conn) {
 
     listener := NewListener(r, instance, session_id, subject, c)
     r.newListeners <- listener
+    
     log.Printf("STARTED SYNC: %s\n", subject.name);
     listener.sync()
     log.Printf("FINISHED SYNC: %s\n", subject.name);
-    listener.StartSendLoop()
-    //listener.send_from_channel(listener.recv)
-    d := json.NewDecoder(c)
-    for {
-        var msg Msg
-        if err := d.Decode(&msg); err != nil {
-            return
-        }
-        msg.Instance = listener.instance
-        msg.Session = listener.session_id
-        if msg.Sender == "" && listener.subject.name != "" {
-            msg.Sender = listener.subject.name
-        }
-        switch msg.Key {
-        case "__get_period__":
-            session := r.get_session(instance, session_id)
-            v := msg.Value.(map[string]interface{})
-            period := int(v["period"].(float64))
-            msgs := make([]*Msg, 0)
-            msg_bytes, err := session.router.db.Lrange(session.db_key, 0, -1)
-            if err != nil {
-                log.Fatal(err)
-            }
-            for _, b := range msg_bytes {
-                var msg Msg
-                if err = json.Unmarshal(b, &msg); err != nil {
-                    log.Fatal(err)
-                }
-                if period == 0 || msg.Period == period {
-                    msgs = append(msgs, &msg)
-                }
-            }
-            listener.recv <- &Msg{Key: "__get_period__", Value: msgs}
-        default:
-            msg.ack = make(chan bool)
-            r.messages <- &msg
-            <-msg.ack
-        }
-    }
+
+    go listener.SendLoop()
+    listener.ReceiveLoop();
 }
 
 func (r *Router) handle_msg(msg *Msg) {

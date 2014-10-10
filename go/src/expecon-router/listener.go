@@ -14,6 +14,7 @@ type Listener struct {
     subject    *Subject
     recv       chan *Msg
     encoder    *json.Encoder
+    decoder    *json.Decoder
     //decoder    json.Decoder
     //connection *websocket.Conn
 }
@@ -26,7 +27,7 @@ func NewListener(router *Router, instance string, session_id int, subject *Subje
         subject:    subject,
         recv:       make(chan *Msg, 100),
         encoder:    json.NewEncoder(connection),
-        //decoder:
+        decoder:    json.NewDecoder(connection),
     }
     return listener;
 }
@@ -46,19 +47,56 @@ func (l *Listener) send(session *Session, msg *Msg, remove chan *Listener) {
     }
 }
 
-func (l *Listener) StartSendLoop() {
-    go func() {
-        for {
-            msg, ok := <- l.recv
-            if !ok {
-                return
-            }
-            log.Printf("%s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
-            if err := l.encoder.Encode(msg); err != nil {
-                return
-            }
+func (l *Listener) SendLoop() {
+    for {
+        msg, ok := <- l.recv
+        if !ok {
+            return
         }
-    }()
+        log.Printf("%s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
+        if err := l.encoder.Encode(msg); err != nil {
+            return
+        }
+    }
+}
+
+func (l *Listener) ReceiveLoop() {
+    for {
+        var msg Msg
+        if err := l.decoder.Decode(&msg); err != nil {
+            return
+        }
+        msg.Instance = l.instance
+        msg.Session = l.session_id
+        if msg.Sender == "" && l.subject.name != "" {
+            msg.Sender = l.subject.name
+        }
+        switch msg.Key {
+        case "__get_period__":
+            session := l.router.get_session(l.instance, l.session_id)
+            v := msg.Value.(map[string]interface{})
+            period := int(v["period"].(float64))
+            msgs := make([]*Msg, 0)
+            msg_bytes, err := session.router.db.Lrange(session.db_key, 0, -1)
+            if err != nil {
+                log.Fatal(err)
+            }
+            for _, b := range msg_bytes {
+                var msg Msg
+                if err = json.Unmarshal(b, &msg); err != nil {
+                    log.Fatal(err)
+                }
+                if period == 0 || msg.Period == period {
+                    msgs = append(msgs, &msg)
+                }
+            }
+            l.recv <- &Msg{Key: "__get_period__", Value: msgs}
+        default:
+            msg.ack = make(chan bool)
+            l.router.messages <- &msg
+            <-msg.ack
+        }
+    }
 }
 
 // push requested messages from queue to w, in between to fictitious start and end messages
