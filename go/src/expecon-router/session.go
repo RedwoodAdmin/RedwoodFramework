@@ -3,6 +3,7 @@ package main
 import(
     "time"
     "fmt"
+    "log"
 )
 
 type Session struct {
@@ -33,7 +34,9 @@ func (s *Session) get_subject(name string) *Subject {
             Period:   0,
             Group:    0,
         }
-        msg.save(s.router.db)
+        if err := s.router.dbnew.SaveMessage(msg); err != nil {
+            log.Fatal(err)
+        }
         for id := range s.listeners {
             s.listeners[id].Send(msg)
         }
@@ -54,7 +57,9 @@ func (s *Session) set_session_object(obj_key string, obj_bytes []byte) error {
 
 func (s *Session) recv(msg *Msg) {
     if msg.Key != "__reset__" && msg.Key != "__delete__" {
-        msg.save(s.router.db)
+        if err := s.router.dbnew.SaveMessage(msg); err != nil {
+            log.Fatal(err)
+        }
     }
     for id := range s.listeners {
         s.listeners[id].Send(msg)

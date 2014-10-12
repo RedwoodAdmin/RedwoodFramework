@@ -137,7 +137,7 @@ func (db *Database) GetConfig(objectID SessionObjectID) (*Msg, error) {
     return &config, err
 }
 
-/* Gettings Messages */
+/* Getting Messages */
 
 func (db *Database) GetMessages(sessionID SessionID) (chan *Msg, error) {
     // retrive messages in smaller blocks to keep peak memory usage
@@ -174,4 +174,17 @@ func (db *Database) GetMessages(sessionID SessionID) (chan *Msg, error) {
     }()
 
     return messages, nil
+}
+
+/* Saving Messages */
+
+func (db *Database) SaveMessage(msg *Msg) (error) {
+    key := fmt.Sprintf("session:%s:%d", msg.Instance, msg.Session)
+    db.client.Sadd("sessions", []byte(key))
+    if b, err := json.Marshal(msg); err == nil {
+        err := db.client.Rpush(key, b)
+        return err
+    } else {
+        return err
+    }
 }

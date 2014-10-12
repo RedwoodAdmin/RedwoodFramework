@@ -1,12 +1,5 @@
 package main
 
-import(
-    "redis-go"
-    "encoding/json"
-    "log"
-    "fmt"
-)
-
 // Messages are namespaced by a session identifier. Group is set by the Redwood
 // server. Only receivers in the same group as sender will receive the message.
 //
@@ -26,16 +19,6 @@ type Msg struct {
     Key         string
     Value       interface{}
     ack         chan bool
-}
-
-func (m *Msg) save(db *redis.Client) {
-    key := fmt.Sprintf("session:%s:%d", m.Instance, m.Session)
-    db.Sadd("sessions", []byte(key))
-    if b, err := json.Marshal(m); err == nil {
-        db.Rpush(key, b)
-    } else {
-        log.Fatal(err)
-    }
 }
 
 func (msg *Msg) identical_to(otherMsg *Msg) bool {
