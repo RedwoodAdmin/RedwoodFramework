@@ -108,7 +108,7 @@ func (db *Database) GetSessionObjectIDs(sessionID SessionID) ([]SessionObjectID,
     return ids, err
 }
 
-/* Getting Session Objects */
+/* Getting and Setting Session Objects */
 
 func (db *Database) getIntData(key string) (int, error) {
     bytes, err := db.client.Get(key)
@@ -135,6 +135,19 @@ func (db *Database) GetConfig(objectID SessionObjectID) (*Msg, error) {
     var config Msg
     err = json.Unmarshal(bytes, &config)
     return &config, err
+}
+
+func (db *Database) SetSessionObject(objectID SessionObjectID, data []byte) (error) {
+    keyBytes := []byte(objectID.Key())
+
+    var err error
+    if err = db.client.Set(objectID.Key(), data); err != nil {
+        return err
+    }
+    if _, err = db.client.Sadd(objectID.sessionID.ObjectsKey(), keyBytes); err != nil {
+        return err
+    }
+    return nil
 }
 
 /* Getting Messages */

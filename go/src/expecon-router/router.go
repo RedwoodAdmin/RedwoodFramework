@@ -178,16 +178,24 @@ func (r *Router) handle_msg(msg *Msg) {
         }
         last_msgs[msg.Sender] = msg
     }
+
+    sessionID := SessionID{instance: msg.Instance, id: msg.Session}
+    objectID := SessionObjectID{
+        objectType: "",
+        sessionID: sessionID,
+        subject: msg.Sender,
+    }
+
     switch msg.Key {
     case "__set_period__":
         v := msg.Value.(map[string]interface{})
         subject := session.subjects[msg.Sender]
         subject.period = int(v["period"].(float64))
         msg.Period = int(v["period"].(float64))
-        period_key := fmt.Sprintf("period:%s:%d:%s", session.instance, session.id, msg.Sender)
         period_bytes := fmt.Sprintf("%d", subject.period)
 
-        if err = session.set_session_object(period_key, []byte(period_bytes)); err != nil {
+        objectID.objectType = "period"
+        if r.dbnew.SetSessionObject(objectID, []byte(period_bytes)); err != nil {
             panic(err)
         }
     case "__set_group__":
@@ -195,27 +203,28 @@ func (r *Router) handle_msg(msg *Msg) {
         subject := session.subjects[msg.Sender]
         subject.group = int(v["group"].(float64))
         msg.Group = int(v["group"].(float64))
-        group_key := fmt.Sprintf("group:%s:%d:%s", session.instance, session.id, msg.Sender)
         group_bytes := fmt.Sprintf("%d", subject.group)
 
-        if err = session.set_session_object(group_key, []byte(group_bytes)); err != nil {
+        objectID.objectType = "group"
+        if r.dbnew.SetSessionObject(objectID, []byte(group_bytes)); err != nil {
             panic(err)
         }
     case "__set_page__":
-        page_key := fmt.Sprintf("page:%s:%d:%s", session.instance, session.id, msg.Sender)
         page_bytes := []byte(msg.Value.(map[string]interface{})["page"].(string))
 
-        if err = session.set_session_object(page_key, page_bytes); err != nil {
+        objectID.objectType = "page"
+        if r.dbnew.SetSessionObject(objectID, []byte(page_bytes)); err != nil {
             panic(err)
         }
     case "__set_config__":
         session.last_cfg = msg
-        config_key := fmt.Sprintf("config:%s:%d:%s", session.instance, session.id, msg.Sender)
         config_bytes, err := json.Marshal(msg)
         if err != nil {
             panic(err)
         }
-        if err = session.set_session_object(config_key, config_bytes); err != nil {
+
+        objectID.objectType = "config"
+        if r.dbnew.SetSessionObject(objectID, []byte(config_bytes)); err != nil {
             panic(err)
         }
     case "__reset__":

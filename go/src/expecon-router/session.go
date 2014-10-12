@@ -44,17 +44,6 @@ func (s *Session) get_subject(name string) *Subject {
     return subject
 }
 
-func (s *Session) set_session_object(obj_key string, obj_bytes []byte) error {
-    var err error
-    if err = s.router.db.Set(obj_key, []byte(obj_bytes)); err != nil {
-        return err
-    }
-    if _, err = s.router.db.Sadd(fmt.Sprintf("session_objs:%s:%d", s.instance, s.id), []byte(obj_key)); err != nil {
-        return err
-    }
-    return nil
-}
-
 func (s *Session) recv(msg *Msg) {
     if msg.Key != "__reset__" && msg.Key != "__delete__" {
         if err := s.router.dbnew.SaveMessage(msg); err != nil {
