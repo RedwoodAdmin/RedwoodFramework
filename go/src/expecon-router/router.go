@@ -17,7 +17,7 @@ type Router struct {
     requestSubject  chan *SubjectRequest
     removeListeners chan *Listener
     sessions        map[string]map[int]*Session
-    dbnew           *Database
+    db           *Database
 }
 
 func NewRouter(redis_host string, redis_db int) (r *Router) {
@@ -28,10 +28,10 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
     r.requestSubject = make(chan *SubjectRequest, 100)
     r.sessions = make(map[string]map[int]*Session)
 
-    r.dbnew = NewDatabase(redis_host, redis_db)
+    r.db = NewDatabase(redis_host, redis_db)
     // populate the in-memory queues with persisted redis data
 
-    sessionIDs, err := r.dbnew.GetSessionIDs()
+    sessionIDs, err := r.db.GetSessionIDs()
     if err != nil {
         log.Fatal(err)
     }
@@ -40,7 +40,7 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
     for _, sessionID := range sessionIDs {
 
         session := r.get_session(sessionID.instance, sessionID.id)
-        sessionObjectIDs, err := r.dbnew.GetSessionObjectIDs(sessionID)
+        sessionObjectIDs, err := r.db.GetSessionObjectIDs(sessionID)
         if err != nil {
             log.Print(err)
         }
@@ -53,19 +53,19 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
 
             switch objectID.objectType {
             case "period":
-                period, err := r.dbnew.GetPeriod(objectID)
+                period, err := r.db.GetPeriod(objectID)
                 if err != nil {
                     panic(err)
                 }
                 session.subjects[subject].period = period
             case "group":
-                group, err := r.dbnew.GetGroup(objectID)
+                group, err := r.db.GetGroup(objectID)
                 if err != nil {
                     panic(err)
                 }
                 session.subjects[subject].group = group
             case "config":
-                config, err := r.dbnew.GetConfig(objectID)
+                config, err := r.db.GetConfig(objectID)
                 if err != nil {
                     panic(err)
                 }
@@ -192,7 +192,7 @@ func (r *Router) handle_msg(msg *Msg) {
         period_bytes := fmt.Sprintf("%d", subject.period)
 
         objectID.objectType = "period"
-        if r.dbnew.SetSessionObject(objectID, []byte(period_bytes)); err != nil {
+        if r.db.SetSessionObject(objectID, []byte(period_bytes)); err != nil {
             panic(err)
         }
     case "__set_group__":
@@ -203,14 +203,14 @@ func (r *Router) handle_msg(msg *Msg) {
         group_bytes := fmt.Sprintf("%d", subject.group)
 
         objectID.objectType = "group"
-        if r.dbnew.SetSessionObject(objectID, []byte(group_bytes)); err != nil {
+        if r.db.SetSessionObject(objectID, []byte(group_bytes)); err != nil {
             panic(err)
         }
     case "__set_page__":
         page_bytes := []byte(msg.Value.(map[string]interface{})["page"].(string))
 
         objectID.objectType = "page"
-        if r.dbnew.SetSessionObject(objectID, []byte(page_bytes)); err != nil {
+        if r.db.SetSessionObject(objectID, []byte(page_bytes)); err != nil {
             panic(err)
         }
     case "__set_config__":
@@ -221,7 +221,7 @@ func (r *Router) handle_msg(msg *Msg) {
         }
 
         objectID.objectType = "config"
-        if r.dbnew.SetSessionObject(objectID, []byte(config_bytes)); err != nil {
+        if r.db.SetSessionObject(objectID, []byte(config_bytes)); err != nil {
             panic(err)
         }
     case "__reset__":

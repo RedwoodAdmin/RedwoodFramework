@@ -33,7 +33,7 @@ func (s *Session) get_subject(name string) *Subject {
             Period:   0,
             Group:    0,
         }
-        if err := s.router.dbnew.SaveMessage(msg); err != nil {
+        if err := s.router.db.SaveMessage(msg); err != nil {
             log.Fatal(err)
         }
         for id := range s.listeners {
@@ -45,7 +45,7 @@ func (s *Session) get_subject(name string) *Subject {
 
 func (s *Session) recv(msg *Msg) {
     if msg.Key != "__reset__" && msg.Key != "__delete__" {
-        if err := s.router.dbnew.SaveMessage(msg); err != nil {
+        if err := s.router.db.SaveMessage(msg); err != nil {
             log.Fatal(err)
         }
     }
@@ -60,7 +60,7 @@ func (s *Session) reset() {
     s.last_state_update = make(map[string]map[string]*Msg)
 
     sessionID := SessionID{instance: s.instance, id: s.id}
-    s.router.dbnew.DeleteSession(sessionID)
+    s.router.db.DeleteSession(sessionID)
 
     // replay last config
     if s.last_cfg != nil {
