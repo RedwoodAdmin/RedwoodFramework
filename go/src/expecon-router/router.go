@@ -2,7 +2,6 @@ package main
 
 import(
     "websocket"
-    "redis-go"
     "encoding/json"
     "net/url"
     "strconv"
@@ -18,7 +17,6 @@ type Router struct {
     requestSubject  chan *SubjectRequest
     removeListeners chan *Listener
     sessions        map[string]map[int]*Session
-    db              *redis.Client
     dbnew           *Database
 }
 
@@ -31,7 +29,6 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
     r.sessions = make(map[string]map[int]*Session)
 
     r.dbnew = NewDatabase(redis_host, redis_db)
-    r.db = r.dbnew.client
     // populate the in-memory queues with persisted redis data
 
     sessionIDs, err := r.dbnew.GetSessionIDs()

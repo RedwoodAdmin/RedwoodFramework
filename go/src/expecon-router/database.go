@@ -48,6 +48,8 @@ func NewDatabase(redisHost string, redisDB int) (database *Database) {
     return database
 }
 
+/* Getting/Setting Session Stuff */
+
 func (db *Database) GetSessionIDs() ([]SessionID, error) {
     sessionsData, err := db.client.Smembers("sessions")
     if err != nil {
@@ -108,6 +110,18 @@ func (db *Database) GetSessionObjectIDs(sessionID SessionID) ([]SessionObjectID,
     return ids, err
 }
 
+func (db *Database) DeleteSession(sessionID SessionID) (error) {
+    _, err := db.client.Del(sessionID.Key())
+    if err != nil {
+        return err
+    }
+    _, err = db.client.Srem("sessions", []byte(sessionID.Key()))
+    if err != nil {
+        return err
+    }
+    return db.DeleteSessionObjects(sessionID)
+}
+
 /* Getting and Setting Session Objects */
 
 func (db *Database) getIntData(key string) (int, error) {
@@ -148,6 +162,21 @@ func (db *Database) SetSessionObject(objectID SessionObjectID, data []byte) (err
         return err
     }
     return nil
+}
+
+func (db *Database) DeleteSessionObjects(sessionID SessionID) (error) {
+    objectKeys, err := db.client.Smembers(sessionID.Key())
+    if err != nil {
+        return err
+    }
+    for i := range objectKeys {
+        _, err := db.client.Del(string(objectKeys[i]))
+        if err != nil {
+            return err
+        }
+    }
+    _, err = db.client.Del(sessionID.ObjectsKey())
+    return err
 }
 
 /* Getting Messages */

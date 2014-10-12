@@ -2,7 +2,6 @@ package main
 
 import(
     "time"
-    "fmt"
     "log"
 )
 
@@ -57,17 +56,12 @@ func (s *Session) recv(msg *Msg) {
 
 func (s *Session) reset() {
     s.nonce = uuid()
-    session_objs_key := fmt.Sprintf("session_objs:%s:%d", s.instance, s.id)
-    session_objs, _ := s.router.db.Smembers(session_objs_key)
-    for i := range session_objs {
-        s.router.db.Del(string(session_objs[i]))
-    }
-    s.router.db.Del(session_objs_key)
     s.subjects = make(map[string]*Subject)
     s.last_state_update = make(map[string]map[string]*Msg)
-    session_key := fmt.Sprintf("session:%s:%d", s.instance, s.id)
-    s.router.db.Del(session_key)
-    s.router.db.Srem("sessions", []byte(session_key))
+
+    sessionID := SessionID{instance: s.instance, id: s.id}
+    s.router.dbnew.DeleteSession(sessionID)
+
     // replay last config
     if s.last_cfg != nil {
         s.last_cfg.Nonce = s.nonce
