@@ -108,6 +108,8 @@ func (db *Database) GetSessionObjectIDs(sessionID SessionID) ([]SessionObjectID,
     return ids, err
 }
 
+/* Getting Session Objects */
+
 func (db *Database) getIntData(key string) (int, error) {
     bytes, err := db.client.Get(key)
     if err != nil {
@@ -133,4 +135,43 @@ func (db *Database) GetConfig(objectID SessionObjectID) (*Msg, error) {
     var config Msg
     err = json.Unmarshal(bytes, &config)
     return &config, err
+}
+
+/* Gettings Messages */
+
+func (db *Database) GetMessages(sessionID SessionID) (chan *Msg, error) {
+    // retrive messages in smaller blocks to keep peak memory usage
+    // under control when the message digest gets too large
+    blockSize := 1000
+    messageCount, err := db.client.Llen(sessionID.Key())
+    if err != nil {
+        return nil, err
+    }
+
+    messages := make(chan *Msg, blockSize)
+
+    go func() {
+        for i := 0; i <= messageCount; i += blockSize {
+            limit := i + blockSize
+            if limit > messageCount {
+                limit = messageCount
+            }
+            msgData, err := db.client.Lrange(sessionID.Key(), i, limit)
+            if err != nil {
+                close(messages)
+                return
+            }
+            for _, bytes := range msgData {
+                var msg Msg
+                if err = json.Unmarshal(bytes, &msg); err != nil {
+                    close(messages)
+                    return
+                }
+                messages <- &msg
+            }
+        }
+        close(messages)
+    }()
+
+    return messages, nil
 }

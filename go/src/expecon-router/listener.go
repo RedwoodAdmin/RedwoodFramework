@@ -52,7 +52,7 @@ func (l *Listener) SendLoop() {
         if !ok {
             return
         }
-        log.Printf("%s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
+        //log.Printf("%s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
         if err := l.encoder.Encode(msg); err != nil {
             return
         }
@@ -72,21 +72,17 @@ func (l *Listener) ReceiveLoop() {
         }
         switch msg.Key {
         case "__get_period__":
-            session := l.router.get_session(l.instance, l.session_id)
             v := msg.Value.(map[string]interface{})
             period := int(v["period"].(float64))
             msgs := make([]*Msg, 0)
-            msg_bytes, err := session.router.db.Lrange(session.db_key, 0, -1)
+
+            allMessages, err := l.router.dbnew.GetMessages(SessionID{l.instance, l.session_id})
             if err != nil {
                 log.Fatal(err)
             }
-            for _, b := range msg_bytes {
-                var msg Msg
-                if err = json.Unmarshal(b, &msg); err != nil {
-                    log.Fatal(err)
-                }
+            for msg := range allMessages {
                 if period == 0 || msg.Period == period {
-                    msgs = append(msgs, &msg)
+                    msgs = append(msgs, msg)
                 }
             }
             l.recv <- &Msg{Key: "__get_period__", Value: msgs}
@@ -109,18 +105,14 @@ func (l *Listener) sync() {
     }
     l.encoder.Encode(queueStartMessage);
 
-    msg_bytes, err := session.router.db.Lrange(session.db_key, 0, -1)
+    messages, err := l.router.dbnew.GetMessages(SessionID{l.instance, l.session_id})
     if err != nil {
         log.Fatal(err)
     }
-    for _, b := range msg_bytes {
-        var msg Msg
-        if err = json.Unmarshal(b, &msg); err != nil {
-            log.Fatal(err)
-        }
-        if l.match(session, &msg) {
-            l.encoder.Encode(&msg);
-            log.Printf("Sync: %s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
+    for msg := range messages {
+        if l.match(session, msg) {
+            l.encoder.Encode(&msg)
+            //log.Printf("Sync: %s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key)
         }
     }
 
