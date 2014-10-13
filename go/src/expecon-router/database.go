@@ -226,7 +226,6 @@ func (db *Database) SaveMessage(msg *Msg) (error) {
     if b, err := json.Marshal(msg); err == nil {
         err := db.client.Rpush(key, b)
         return err
-    } else {
-        return err
     }
+    return nil
 }
