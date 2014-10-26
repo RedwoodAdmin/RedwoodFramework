@@ -150,6 +150,7 @@ type Listener struct {
 	session_id int
 	subject    *Subject
 	recv       chan *Msg
+	connection *websocket.Conn
 }
 
 // Messages are namespaced by a session identifier. Group is set by the Redwood
@@ -181,6 +182,22 @@ func (m *Msg) save(db *redis.Client) {
 	} else {
 		log.Fatal(err)
 	}
+}
+
+func (msg *Msg) identical_to(otherMsg *Msg) bool {
+	// Test equality of all properties except for the ack channel
+	// some of these comparisons may not be necessary
+	return otherMsg != nil &&
+	       msg.Instance    == otherMsg.Instance &&
+	       msg.Session     == otherMsg.Session &&
+	       msg.Nonce       == otherMsg.Nonce &&
+	       msg.Sender      == otherMsg.Sender &&
+	       msg.Period      == otherMsg.Period &&
+	       msg.Group       == otherMsg.Group &&
+	       msg.StateUpdate == otherMsg.StateUpdate &&
+	       msg.Time        == otherMsg.Time &&
+	       msg.ClientTime  == otherMsg.ClientTime &&
+	       msg.Key         == otherMsg.Key
 }
 
 type SubjectRequest struct {
@@ -241,20 +258,14 @@ func (r *Router) handle_ws(c *websocket.Conn) {
 		instance:   instance,
 		session_id: session_id,
 		subject:    subject,
-		recv:       make(chan *Msg, 100)}
+		recv:       make(chan *Msg, 100),
+		connection: c,
+	}
 	r.newListeners <- listener
-	go func() {
-		defer func() {
-			close(listener.recv)
-		}()
-		e := json.NewEncoder(c)
-		for {
-			if err := e.Encode(<-listener.recv); err != nil {
-				return
-			}
-		}
-	}()
+	log.Printf("STARTED SYNC: %s\n", subject.name);
 	listener.sync()
+	log.Printf("FINISHED SYNC: %s\n", subject.name);
+	listener.send_from_channel(listener.recv)
 	d := json.NewDecoder(c)
 	for {
 		var msg Msg
@@ -397,10 +408,29 @@ func (r *Router) route() {
 	}
 }
 
+func (l *Listener) send_from_channel(channel <-chan *Msg) {
+	go func() {
+		e := json.NewEncoder(l.connection)
+		for {
+			msg, ok := <- channel
+			if !ok {
+				return
+			}
+			log.Printf("%s, %s, %d, %s from %p\n", msg.Sender, l.subject.name, msg.Period, msg.Key, channel);
+			if err := e.Encode(msg); err != nil {
+				return
+			}
+		}
+	}()
+}
+
 // push requested messages from queue to w, in between to fictitious start and end messages
 func (l *Listener) sync() {
+	sync_channel := make(chan *Msg)
+	l.send_from_channel(sync_channel)
+
 	session := l.router.get_session(l.instance, l.session_id)
-	l.recv <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_start__", Nonce: session.nonce}
+	sync_channel <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_start__", Nonce: session.nonce}
 	msg_bytes, err := session.router.db.Lrange(session.db_key, 0, -1)
 	if err != nil {
 		log.Fatal(err)
@@ -411,26 +441,11 @@ func (l *Listener) sync() {
 			log.Fatal(err)
 		}
 		if l.match(session, &msg) {
-			l.recv <- &msg
+			sync_channel <- &msg
 		}
 	}
-	l.recv <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_end__", Nonce: session.nonce}
-}
-
-func (msg *Msg) identical_to(otherMsg *Msg) bool {
-	// Test equality of all properties except for the ack channel
-	// some of these comparisons may not be necessary
-	return otherMsg != nil &&
-	       msg.Instance    == otherMsg.Instance &&
-	       msg.Session     == otherMsg.Session &&
-	       msg.Nonce       == otherMsg.Nonce &&
-	       msg.Sender      == otherMsg.Sender &&
-	       msg.Period      == otherMsg.Period &&
-	       msg.Group       == otherMsg.Group &&
-	       msg.StateUpdate == otherMsg.StateUpdate &&
-	       msg.Time        == otherMsg.Time &&
-	       msg.ClientTime  == otherMsg.ClientTime &&
-	       msg.Key         == otherMsg.Key
+	sync_channel <- &Msg{Time: time.Now().UnixNano(), Key: "__queue_end__", Nonce: session.nonce}
+	close(sync_channel)
 }
 
 func (l *Listener) match(session *Session, msg *Msg) bool {
