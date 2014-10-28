@@ -1,0 +1,16 @@
+{
+    "DEBUG": false,
+    "URL_PREFIX": "",
+	"ALLOWED_HOSTS": ["*"],
+    "DATABASES" : {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": "C:/Users/User/Desktop/Projects/redwood/redwood.db",
+            "USER": "",
+            "PASSWORD": "",
+            "HOST": "",
+            "PORT": ""
+        }
+    },
+    "logfile": "C:/Users/User/Desktop/Projects/redwood/log.txt"
+}
