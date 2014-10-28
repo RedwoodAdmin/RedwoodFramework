@@ -14,6 +14,7 @@ class PageInline(admin.StackedInline):
 		JSField: {'widget': CodeEditorWidget(mode='javascript')},
 	}
 	
+@admin.register(Page)
 class PageAdmin(reversion.VersionAdmin):
 	formfield_overrides = {
 		HTMLField: {'widget': CodeEditorWidget(mode='html')},
@@ -31,8 +32,10 @@ class SessionInline(admin.StackedInline):
 	model = Session
 	extra = 0
 	readonly_fields = ('experiment','id')
+	view_on_site = True
 	form = AlwaysChangedModelForm
     
+@admin.register(Experiment)
 class ExperimentAdmin(reversion.VersionAdmin):
 	inlines = (PageInline, SessionInline)
 	formfield_overrides = {
@@ -40,6 +43,3 @@ class ExperimentAdmin(reversion.VersionAdmin):
 		CSSField: {'widget': CodeEditorWidget(mode='css')},
 		JSField: {'widget': CodeEditorWidget(mode='javascript')},
 	}
-
-admin.site.register(Experiment, ExperimentAdmin)
-admin.site.register(Page, PageAdmin)

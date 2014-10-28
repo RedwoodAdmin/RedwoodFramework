@@ -5,13 +5,13 @@ sudo apt-get install golang
 sudo apt-get install libapache2-mod-wsgi
 sudo apt-get install redis-server
 sudo apt-get install python-redis
+sudo apt-get install sendmail # needed for default logging settings
 sudo apt-get install git
+sudo apt-get install python-pip
 
-# Install Django
-wget https://www.djangoproject.com/download/1.4.2/tarball/ -O Django-1.4.2.tar.gz
-tar xzvf Django-1.4.2.tar.gz
-cd Django-1.4.2
-sudo python setup.py install
+# Install Django and reversion
+pip install django==1.7
+pip install django-reversion==1.8.4
 
 # Clone Redwood from GitHub repository
 sudo mkdir /var/www
