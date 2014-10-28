@@ -66,7 +66,7 @@
 			});
 
 			r.recv("__set_lottery_conversion__", function(msg) {
-				$scope.subjects[msg.Sender].lottery_conversions = msg.Value.lottery_conversion;
+				$scope.subjects[msg.Sender].lottery_conversion = msg.Value.lottery_conversion;
 				update_payouts(msg.Sender);
 			});
 
@@ -87,7 +87,7 @@
 
 			r.__connect__();
 
-		}]);
+	}]);
 	</script>
 </head>
 {% verbatim %}
@@ -101,6 +101,7 @@
 				<th>Paid Points</th>
 				<th>Conversion Rate</th>
 				<th>Base Pay</th>
+				<th>Lottery Pay</th>
 				<th>Show-Up Fee</th>
 				<th>Total Payout</th>
 			</tr>
