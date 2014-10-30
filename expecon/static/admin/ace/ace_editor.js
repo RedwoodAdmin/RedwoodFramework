@@ -1,3 +1,10 @@
+/*
+	Documentation to reduce future confusion:
+	This should be called every time the Ace editor contents change.
+	This updates a companion HTML form textarea element with
+	the contents of the Ace editor so it's contents are actually
+	submitted when the experiment is saved.
+*/
 function editorChanged(editor, editorElement) {
 	return function(){
 		var value = editor.getSession().getValue();
