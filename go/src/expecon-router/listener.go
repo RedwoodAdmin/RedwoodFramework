@@ -122,6 +122,7 @@ func (l *Listener) sync() {
         Nonce: session.nonce,
     }
     l.encoder.Encode(queueEndMessage);
+    log.Printf("Finished sync for %p", l)
 }
 
 func (l *Listener) match(session *Session, msg *Msg) bool {

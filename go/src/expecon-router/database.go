@@ -12,6 +12,7 @@ import(
     "strings"
     "errors"
     "fmt"
+    "log"
 )
 
 type SessionID struct {
@@ -192,13 +193,15 @@ func (db *Database) GetMessages(sessionID SessionID) (chan *Msg, error) {
 
     messages := make(chan *Msg, blockSize)
 
+    log.Printf("Fetching %d messages from Redis into %p", messageCount, messages)
     go func() {
-        for i := 0; i <= messageCount; i += blockSize {
+        for i := 0; i < messageCount; i += blockSize {
             limit := i + blockSize
-            if limit > messageCount {
+            if limit >= messageCount {
                 limit = messageCount
             }
-            msgData, err := db.client.Lrange(sessionID.Key(), i, limit)
+            log.Printf("Fetching messages %d-%d into %p", i, limit - 1, messages)
+            msgData, err := db.client.Lrange(sessionID.Key(), i, limit - 1)
             if err != nil {
                 close(messages)
                 return
