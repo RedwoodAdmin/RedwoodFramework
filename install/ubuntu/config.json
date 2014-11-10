@@ -2,6 +2,7 @@
     "DEBUG": false,
     "URL_PREFIX": "",
     "ALLOWED_HOSTS": ["*"],
+    "SECRET_KEY": "c%s)0%=k2*fsqbaqg6p359+frty#p0m0=%h3ek!ce+k_xo2x2l",
     "DATABASES" : {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
