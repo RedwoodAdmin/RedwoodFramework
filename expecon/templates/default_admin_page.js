@@ -1,4 +1,4 @@
-{% load verbatim %}{% verbatim %}
+{% verbatim %}
 Redwood.controller("AdminCtrl", ["$rootScope", "$scope", "Admin", function($rootScope, $scope, ra) {
 	var Display = { //Display controller
 
