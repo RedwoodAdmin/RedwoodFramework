@@ -11,4 +11,5 @@ urlpatterns = patterns('expecon.views',
 	url(r'^admin/expecon/experiment/(?P<experiment>\d+)/clone$', 'clone_experiment'),
 	url(r'^admin/expecon/experiment/(?P<experiment>\d+)/download$', 'download_experiment'),
 	url(r'^admin/expecon/experiment/(?P<experiment>\d+)/upload$', 'upload_experiment'),
+	url(r'^admin/expecon/experiment/(add)/upload$', 'upload_experiment'),
 )
