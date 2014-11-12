@@ -31,10 +31,29 @@ class AlwaysChangedModelForm(ModelForm):
 class SessionInline(admin.StackedInline):
 	model = Session
 	extra = 0
-	readonly_fields = ('experiment','id')
+
+	fields = ('comments', 'subject_pages')
+	readonly_fields = ('experiment', 'id', 'subject_pages')
 	view_on_site = True
 	form = AlwaysChangedModelForm
-    
+
+	# A hacky way to get subject pages to show on admin page.
+	def subject_pages(self, obj):
+		if obj.id:
+			view = 'expecon.views.session_experiment'
+			template = '<a href="%s">Subject %d</a>'
+			links = []
+			for i in range(4):
+				subject = i + 1
+				url = reverse(view, args=(obj.id, subject))
+				link = template % (url, subject)
+				links.append(link)
+
+			return ', '.join(links)
+		else:
+			return None
+	subject_pages.allow_tags = True
+
 @admin.register(Experiment)
 class ExperimentAdmin(reversion.VersionAdmin):
 	inlines = (PageInline, SessionInline)

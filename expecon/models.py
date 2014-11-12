@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.utils.encoding import smart_str
 from django.template import loader
 from django.template import Template, Context
+from django.core.urlresolvers import reverse
 from fields import *
 import datetime
 import uuid
@@ -66,9 +67,8 @@ class Session(models.Model):
 	def __str__(self):
 		return smart_str('%d' % (self.id))
 	
-	@models.permalink	
 	def get_absolute_url(self):
-		return ('expecon.views.session_admin', (str(self.id),))
+		return reverse('expecon.views.session_admin', args=(self.id,))
 		
 class Page(models.Model):
 	experiment = models.ForeignKey(Experiment)
