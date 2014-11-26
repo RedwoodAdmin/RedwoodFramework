@@ -1,0 +1,66 @@
+<div class="navbar navbar-fixed-top container">
+	<div class="navbar navbar-default" style="margin-bottom: 0;">
+		<div class="navbar-brand" href="#">Economics Experiment</div>
+		<ul class="nav navbar-nav">
+			<li class="active">
+				<a>User ID: <span>{{$root.user_id}}</span></a>
+			</li>
+		</ul>
+		<div class="navbar-right">
+			<div class="navbar-text">Period: <span>{{$root.period}}</span></div>
+			<div class="navbar-text">Points: <span>{{$root.points | number:2}}</span></div>
+			<div class="navbar-text">Total Points: <span>{{$root.totalPoints | number:2}}</span></div>
+			<div class="navbar-text">Time Remaining: <span>{{timeRemaining | timeString}}</span></div>
+		</div>
+	</div>
+</div>
+
+<div class="container">
+
+	<div class="row" ng-hide="status.started">
+		<div class="col-lg-12">
+			<button id="ready-button" class="btn btn-success"
+					ng-click="ready()"
+					ng-disabled="status.ready" animate-toggle-class="{cssClass: 'button-flash', delay: 500, disabled: status.ready}">Ready</button>
+		</div>
+	</div>
+
+	<div class="row" ng-show="status.started">
+		<div class="col-lg-12">
+			<div class="row" style="margin-bottom: 10px;">
+				<div class="col-lg-2"></div>
+				<div class="col-lg-10" style="padding-left: 33px;">
+					<p class="label label-success" ng-show="status.entered && (myEntry < otherEntry)">You Entered First.</p>
+					<p class="label label-danger" ng-show="status.entered && (myEntry > otherEntry)">You Entered Second.</p>
+					<p class="label label-default" ng-show="status.entered && (myEntry === otherEntry)">You Entered Simultaneously.</p>
+				</div>
+			</div>
+
+			<div class="row">
+				<div class="col-lg-2">
+					<div style="float: right; margin-top: 210px; text-align: center;">
+						<div>
+							<button ng-click="enter()" ng-disabled="status.entered || !t" class="btn btn-primary">Enter</button>
+							<key-press key-code="32" callback="enter()"></key-press>
+						</div>
+						<div ng-show="status.entered" style="color: grey; font-weight: bold; margin-top: 5px;">
+							You've<br>
+							ENTERED
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-10">
+					<plot class="plot span6" style="width: 800px; height: 500px;"></plot>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row" style="margin-top: 20px;">
+		<div class="col-lg-12" style="text-align: center; font-size: 1.5em;">
+			<div class="alert alert-danger" ng-show="pauseRemaining">Clock frozen for <span>{{pauseRemaining}}</span> seconds.</div>
+			<div class="alert alert-info" ng-show="delayRemaining">Begin in  <span>{{delayRemaining}}</span> seconds.</div>
+		</div>
+	</div>
+
+</div>
