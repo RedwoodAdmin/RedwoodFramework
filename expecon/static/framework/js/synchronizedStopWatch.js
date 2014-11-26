@@ -2,32 +2,44 @@
 Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'RedwoodSubject', function($q, $rootScope, $timeout, rs) {
 	'use strict';
 
+	var instanceCount = 0;
+
 	return {
 		instance: function() {
+			var instanceId = ++instanceCount;
+			var prefix = '_timer_' + instanceId + '_t_';
 
 			var frequency = 1,
 				duration = 1,
 				onTick = function() {},
-				onComplete = function() {};
+				onComplete = function() {},
+				subjects;
 
 			var tick = 0, t = 0, tickTarget = 0;
 
-			var timeout, latch;
+			var timeout, atBarrier;
+
+			var resumed = $q.defer();
+			resumed.resolve();
+			var resume = resumed.promise;
 
 			function executeTick() {
-				if(!latch) {
-					rs.synchronizationBarrier('_tick_' + tick).then(function() {
-						latch = false;
-						tick++;
+				if(!atBarrier) {
+					atBarrier = true;
+					$timeout.cancel(timeout);
+					resume.then(function() {
+						rs.synchronizationBarrier(prefix + tick, subjects).then(function() {
+							atBarrier = false;
+							tick++;
 						t = Math.floor(tick / frequency);
 						onTick(tick, t);
-						if(tick < tickTarget) {
-							schedule_tick();
-						} else {
-							onComplete();
-						}
+							if(tick < tickTarget) {
+								schedule_tick();
+							} else {
+								onComplete();
+							}
+						});
 					});
-					latch = true;
 				}
 			}
 
@@ -42,11 +54,14 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 			}
 
 			rs.recv("_at_barrier", function(sender, barrierId) {
-				if(rs.is_realtime && barrierId == '_tick_' + tick + '_' + rs.period) {
-					console.log('forcing tick');
-					$timeout.cancel(timeout);
+				if(rs.is_realtime && barrierId == prefix + tick + '_' + rs.period) {
 					executeTick();
 				}
+			});
+
+			rs.on('_timer_' + instanceId + '_pause_', function() {
+				resumed = $q.defer();
+				resume = resumed.promise;
 			});
 
 			var api = {
@@ -65,6 +80,11 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 					return api;
 				},
 
+				subjects: function(subjectIds) {
+					subjects = subjectIds;
+					return api;
+				},
+
 				onTick: function(f) {
 					onTick = f;
 					return api;
@@ -80,6 +100,14 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 						schedule_tick();
 					}
 					return api;
+				},
+
+				pause: function() {
+					rs.trigger('_timer_' + instanceId + '_pause_');
+				},
+
+				resume: function() {
+					resumed.resolve();
 				},
 
 				getDurationInTicks: function() {
