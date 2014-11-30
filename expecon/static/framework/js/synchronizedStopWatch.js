@@ -17,20 +17,20 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 
 			var tick = 0, t = 0, tickTarget = 0;
 
-			var timeout, atBarrier;
+			var timeout, executingTick = false;
 
 			var resumed = $q.defer();
 			resumed.resolve();
 			var resume = resumed.promise;
 
 			function executeTick() {
-				if(!atBarrier) {
-					atBarrier = true;
+				if(!executingTick) {
+					executingTick = true;
 					$timeout.cancel(timeout);
+					timeout = undefined;
 					resume.then(function() {
 						rs.synchronizationBarrier(prefix + tick, subjects).then(function() {
-							atBarrier = false;
-							tick++;
+							executingTick = false;
 						t = Math.floor(tick / frequency);
 						onTick(tick, t);
 							if(tick < tickTarget) {
@@ -38,18 +38,21 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 							} else {
 								onComplete();
 							}
+							tick++;
 						});
 					});
 				}
 			}
 
 			function schedule_tick() {
-				if(rs.is_realtime) {
-					timeout = $timeout(function() {
+				if(!timeout && !executingTick && tick < tickTarget) {
+					if(rs.is_realtime) {
+						timeout = $timeout(function() {
+							executeTick();
+						}, 1000 / frequency);
+					} else {
 						executeTick();
-					}, 1000 / frequency);
-				} else {
-					executeTick();
+					}
 				}
 			}
 
@@ -62,6 +65,9 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 			rs.on('_timer_' + instanceId + '_pause_', function() {
 				resumed = $q.defer();
 				resume = resumed.promise;
+			});
+			rs.on('_timer_' + instanceId + '_resume_', function() {
+				resumed.resolve();
 			});
 
 			var api = {
@@ -96,8 +102,12 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 				},
 
 				start: function() {
-					if(!timeout && tick < tickTarget) {
-						schedule_tick();
+					if(!timeout && !executingTick && tick < tickTarget) {
+						if(tick == 0) {
+							$rootScope.$evalAsync(executeTick);
+						} else {
+							schedule_tick();
+						}
 					}
 					return api;
 				},
@@ -107,7 +117,7 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 				},
 
 				resume: function() {
-					resumed.resolve();
+					rs.trigger('_timer_' + instanceId + '_resume_');
 				},
 
 				getDurationInTicks: function() {
