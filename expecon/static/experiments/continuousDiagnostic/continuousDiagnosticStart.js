@@ -33,8 +33,10 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", "Sy
 			$scope.ticksPerSubPeriod = Math.floor($scope.clock.getDurationInTicks() / (rs.config.num_sub_periods || $scope.clock.getDurationInTicks()));
 			$scope.t = 0;
 
-			$scope.subPeriods = [];
+			$scope.myEntry = $scope.tMax + 1;
+			$scope.otherEntry = $scope.tMax + 1;
 
+			$scope.subPeriods = [];
 			if($scope.ticksPerSubPeriod > 1) {
 				for(var i = 1; i <= $scope.tMax; i++) {
 					if(i % $scope.ticksPerSubPeriod === 0) {
@@ -56,22 +58,23 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", "Sy
 			}
 
 			if(rs.config.delay) {
-				$scope.delayTimer = SynchronizedStopWatch.instance()
+				SynchronizedStopWatch.instance()
 					.subjects([$scope.partner_id])
 					.frequency(1).onTick(function(tick, lapsed, remaining) {
 						$scope.delayRemaining = remaining;
 					})
-					.duration(rs.config.delay).onComplete(function() {
-						$scope.status.started = true;
-						$scope.clock.start();
-					})
+					.duration(rs.config.delay).onComplete(start)
 					.start();
 			} else {
-				$scope.status.started = true;
-				$scope.clock.start();
+				start();
 			}
 		});
 	});
+
+	function start() {
+		$scope.clock.start();
+		$scope.status.started = true;
+	}
 
 	$scope.enter = function() {
 		if(!$scope.status.entered) {
@@ -85,7 +88,7 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", "Sy
 		$scope.status.entered = true;
 		$scope.myEntry = value;
 
-		if(angular.isDefined($scope.otherEntry)) {
+		if($scope.otherEntry < ($scope.tMax + 1)) {
 			rs.set_points($scope.earn($scope.myEntry / $scope.tMax, $scope.otherEntry / $scope.tMax));
 		} else if(rs.config.pauset) {
 			pause();
@@ -95,13 +98,17 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", "Sy
 	rs.recv("enter", function(sender, value) { //receive other subjects actions
 		if(sender === $scope.partner_id) {
 			$scope.otherEntry = value;
-			if(angular.isDefined($scope.myEntry)) {
+			if($scope.myEntry < ($scope.tMax + 1)) {
 				rs.set_points($scope.earn($scope.myEntry / $scope.tMax, $scope.otherEntry / $scope.tMax));
 			} else if(rs.config.pauset) {
 				pause();
 			}
 		}
 	});
+
+	$scope.revealed = function() {
+		return $scope.myEntry < ($scope.tMax + 1) && $scope.t >= $scope.myEntry + $scope.ticksPerSubPeriod;
+	};
 
 	function pause() {
 		$scope.clock.pause();
@@ -125,13 +132,15 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", "Sy
 		$scope.second = [];
 		$scope.secondRewards = [];
 
-		if(angular.isDefined($scope.myEntry) || angular.isDefined($scope.otherEntry)) {
-			var anchor1 = Math.min(angular.isDefined($scope.myEntry) ? $scope.myEntry : $scope.otherEntry, angular.isDefined($scope.otherEntry) ? $scope.otherEntry : $scope.myEntry);
+		if(Math.min($scope.myEntry, $scope.otherEntry) < $scope.tMax + 1
+			&& $scope.t >= Math.min($scope.myEntry, $scope.otherEntry) + $scope.ticksPerSubPeriod) {
+			var anchor1 = Math.min($scope.myEntry, $scope.otherEntry);
 		} else {
 			var anchor1 = $scope.t - ($scope.t % $scope.ticksPerSubPeriod);
 		}
 
-		if(angular.isDefined($scope.myEntry) && angular.isDefined($scope.otherEntry)) {
+		if(Math.max($scope.myEntry, $scope.otherEntry) < $scope.tMax + 1
+			&& $scope.t >= Math.max($scope.myEntry, $scope.otherEntry) + $scope.ticksPerSubPeriod) {
 			var anchor2 = Math.max($scope.myEntry, $scope.otherEntry)
 		} else {
 			var anchor2 = $scope.tMax
@@ -179,11 +188,11 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", "Sy
 	}
 
 	function onComplete() {
-		if(angular.isUndefined($scope.myEntry) && angular.isUndefined($scope.otherEntry)) {
+		if($scope.myEntry >= ($scope.tMax + 1) && $scope.otherEntry >= ($scope.tMax + 1)) {
 			rs.set_points($scope.earn(1, 1));
-		} else if(angular.isUndefined($scope.myEntry) && angular.isDefined($scope.otherEntry)) {
+		} else if($scope.myEntry >= ($scope.tMax + 1) && $scope.otherEntry < ($scope.tMax + 1)) {
 			rs.set_points($scope.earn(1, $scope.otherEntry / $scope.tMax));
-		} else if(angular.isDefined($scope.myEntry) && angular.isUndefined($scope.otherEntry)) {
+		} else if($scope.myEntry < ($scope.tMax + 1) && $scope.otherEntry >= ($scope.tMax + 1)) {
 			rs.set_points($scope.earn($scope.myEntry / $scope.tMax, 1));
 		}
 

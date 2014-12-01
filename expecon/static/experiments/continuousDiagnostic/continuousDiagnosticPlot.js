@@ -25,7 +25,7 @@ Redwood.directive('plot', ["$rootScope", "RedwoodSubject", function($rootScope, 
 				};
 
 				var dataset = [];
-				for(var p = 0; p < $scope.subPeriods.length; p++) { //mark each sub-period with a vertical red line
+				for(var p = 0; p < $scope.subPeriods.length; p++) { //mark each sub-period with a vertical line
 					dataset.push({
 						data: [
 							[$scope.subPeriods[p], opts.yaxis.min],
@@ -51,9 +51,11 @@ Redwood.directive('plot', ["$rootScope", "RedwoodSubject", function($rootScope, 
 				});
 
 				//Check for Entry
-				if(angular.isDefined($scope.myEntry) || angular.isDefined($scope.otherEntry)) { // At least one person has entered
+				if(Math.min($scope.myEntry, $scope.otherEntry) < ($scope.tMax + 1) // At least one person has entered
+					&& $scope.t >= Math.min($scope.myEntry, $scope.otherEntry) + $scope.ticksPerSubPeriod) { // And the entry is revealed
 
-					if(angular.isDefined($scope.myEntry) && angular.isDefined($scope.otherEntry)) { //Both have entered
+					if(Math.max($scope.myEntry, $scope.otherEntry) < $scope.tMax + 1//Both have entered
+						&& $scope.t >= Math.max($scope.myEntry, $scope.otherEntry) + $scope.ticksPerSubPeriod) { // And both are revealed
 
 						dataset.push({ //plot symmetric payoffs
 							data: $scope.symmetric,
@@ -117,9 +119,9 @@ Redwood.directive('plot', ["$rootScope", "RedwoodSubject", function($rootScope, 
 
 					} else { // Only one player has entered
 
-						var entry = angular.isDefined($scope.myEntry) ? $scope.myEntry : $scope.otherEntry;
+						var entry = Math.min($scope.myEntry, $scope.otherEntry);
 
-						if(angular.isDefined($scope.myEntry) || (angular.isDefined($scope.otherEntry) && $scope.t > $scope.otherEntry + $scope.ticksPerSubPeriod)) { //Entry is revealed
+//						if($scope.revealed()) { //Entry is revealed
 
 							dataset.push({ //display the time of first entry
 								data: [
@@ -162,32 +164,32 @@ Redwood.directive('plot', ["$rootScope", "RedwoodSubject", function($rootScope, 
 							});
 
 
-						} else { //Entry is not yet revealed
-
-							dataset.push({ //display the current time indicator as a vertical line
-								data: [
-									[$scope.t / $scope.tMax, opts.yaxis.min],
-									[$scope.t / $scope.tMax, opts.yaxis.max]
-								],
-								color: "green",
-								dashes: {show: true, lineWidth: 0.5}
-							});
-
-							dataset.push({ //green player earnings
-								data: [
-									[$scope.t / $scope.tMax, $scope.earn(entry / $scope.tMax, lastSubPeriod / $scope.tMax)]
-								],
-								points: { show: true, fillColor: false},
-								color: "black"
-							});
-
-							dataset.push({ //plot symmetric payoffs
-								data: $scope.symmetric,
-								lines: { lineWidth: 1 },
-								color: "black"
-							});
-
-						}
+//						} else { //Entry is not yet revealed
+//
+//							dataset.push({ //display the current time indicator as a vertical line
+//								data: [
+//									[$scope.t / $scope.tMax, opts.yaxis.min],
+//									[$scope.t / $scope.tMax, opts.yaxis.max]
+//								],
+//								color: "green",
+//								dashes: {show: true, lineWidth: 0.5}
+//							});
+//
+//							dataset.push({ //green player earnings
+//								data: [
+//									[$scope.t / $scope.tMax, $scope.earn(entry / $scope.tMax, lastSubPeriod / $scope.tMax)]
+//								],
+//								points: { show: true, fillColor: false},
+//								color: "black"
+//							});
+//
+//							dataset.push({ //plot symmetric payoffs
+//								data: $scope.symmetric,
+//								lines: { lineWidth: 1 },
+//								color: "black"
+//							});
+//
+//						}
 
 					}
 
@@ -221,9 +223,11 @@ Redwood.directive('plot', ["$rootScope", "RedwoodSubject", function($rootScope, 
 				// Text in plot
 				function draw_text(plot, ctx) { //Text Display
 
-					if(angular.isDefined($scope.myEntry) || angular.isDefined($scope.otherEntry)) { // At least one person has entered
+					if(Math.min($scope.myEntry, $scope.otherEntry) < ($scope.tMax + 1) // At least one person has entered
+						&& $scope.t >= Math.min($scope.myEntry, $scope.otherEntry) + $scope.ticksPerSubPeriod) { //And the entry is revealed
 
-						if(angular.isDefined($scope.myEntry) && angular.isDefined($scope.otherEntry)) { //Both have entered
+						if(Math.max($scope.myEntry, $scope.otherEntry) < ($scope.tMax + 1) //Both have entered
+							&& $scope.t >= Math.max($scope.myEntry, $scope.otherEntry) + $scope.ticksPerSubPeriod) { //And both are revealed
 
 							if($scope.myEntry === $scope.otherEntry) { // Simultaneous entry
 
@@ -400,11 +404,9 @@ Redwood.directive('plot', ["$rootScope", "RedwoodSubject", function($rootScope, 
 
 						} else { // Only one player has entered
 
-							var entry = angular.isDefined($scope.myEntry) ? $scope.myEntry : $scope.otherEntry;
+//							if($scope.revealed()) { //Entry is revealed
 
-							if(angular.isDefined($scope.myEntry) || (angular.isDefined($scope.otherEntry) && $scope.t > $scope.otherEntry + $scope.ticksPerSubPeriod)) { //Entry is revealed
-
-								if(angular.isDefined($scope.myEntry)) {
+								if($scope.myEntry < ($scope.tMax + 1) && $scope.t >= $scope.myEntry + $scope.ticksPerSubPeriod) {
 
 									ctx.fillStyle = "green";
 									var o = plot.pointOffset({
@@ -471,27 +473,27 @@ Redwood.directive('plot', ["$rootScope", "RedwoodSubject", function($rootScope, 
 
 								}
 
-							} else { //Entry is not yet revealed
-
-								ctx.fillStyle = "black";
-								var o = plot.pointOffset({
-									x: $scope.t / $scope.tMax,
-									y: $scope.earn(lastSubPeriod / $scope.tMax, lastSubPeriod / $scope.tMax)
-								});
-								var s = "Me";
-								var m = ctx.measureText(s);
-								ctx.fillText(s, o.left - 0.5 * m.width, o.top - 5);
-
-								ctx.fillStyle = "black";
-								var o = plot.pointOffset({
-									x: $scope.t / $scope.tMax,
-									y: $scope.earn(lastSubPeriod / $scope.tMax, lastSubPeriod / $scope.tMax)
-								});
-								var s = "Other";
-								var m = ctx.measureText(s);
-								ctx.fillText(s, o.left - 0.5 * m.width, o.top + 12);
-
-							}
+//							} else { //Entry is not yet revealed
+//
+//								ctx.fillStyle = "black";
+//								var o = plot.pointOffset({
+//									x: $scope.t / $scope.tMax,
+//									y: $scope.earn(lastSubPeriod / $scope.tMax, lastSubPeriod / $scope.tMax)
+//								});
+//								var s = "Me";
+//								var m = ctx.measureText(s);
+//								ctx.fillText(s, o.left - 0.5 * m.width, o.top - 5);
+//
+//								ctx.fillStyle = "black";
+//								var o = plot.pointOffset({
+//									x: $scope.t / $scope.tMax,
+//									y: $scope.earn(lastSubPeriod / $scope.tMax, lastSubPeriod / $scope.tMax)
+//								});
+//								var s = "Other";
+//								var m = ctx.measureText(s);
+//								ctx.fillText(s, o.left - 0.5 * m.width, o.top + 12);
+//
+//							}
 
 
 						}

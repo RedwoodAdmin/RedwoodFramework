@@ -19,9 +19,19 @@
 
 	<div class="row" ng-hide="status.started">
 		<div class="col-lg-12">
-			<button id="ready-button" class="btn btn-success"
-					ng-click="ready()"
-					ng-disabled="status.ready" animate-toggle-class="{cssClass: 'button-flash', delay: 500, disabled: status.ready}">Ready</button>
+			<div class="row">
+				<div class="col-lg-12" style="text-align: center; font-size: 1.5em;">
+					<div class="alert alert-info" ng-hide="delayRemaining" ng-visible="status.ready">Waiting for other players.</div>
+					<div class="alert alert-info" ng-show="delayRemaining">Begin in  <span>{{delayRemaining}}</span> seconds.</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-lg-12">
+					<button id="ready-button" class="btn btn-success"
+							ng-click="ready()"
+							ng-disabled="status.ready" animate-toggle-class="{cssClass: 'button-flash', delay: 500, disabled: status.ready}">Ready</button>
+				</div>
+			</div>
 		</div>
 	</div>
 
@@ -30,9 +40,9 @@
 			<div class="row" style="margin-bottom: 10px;">
 				<div class="col-lg-2"></div>
 				<div class="col-lg-10" style="padding-left: 33px;">
-					<p class="label label-success" ng-show="status.entered && (myEntry < otherEntry)">You Entered First.</p>
-					<p class="label label-danger" ng-show="status.entered && (myEntry > otherEntry)">You Entered Second.</p>
-					<p class="label label-default" ng-show="status.entered && (myEntry === otherEntry)">You Entered Simultaneously.</p>
+					<p class="label label-success" ng-show="!revealed() || revealed() && (myEntry < otherEntry)" ng-visible="revealed() && (myEntry < otherEntry)">You Entered First.</p>
+					<p class="label label-danger" ng-show="revealed() && (myEntry > otherEntry)">You Entered Second.</p>
+					<p class="label label-default" ng-show="revealed() && (myEntry === otherEntry)">You Entered Simultaneously.</p>
 				</div>
 			</div>
 
@@ -58,8 +68,7 @@
 
 	<div class="row" style="margin-top: 20px;">
 		<div class="col-lg-12" style="text-align: center; font-size: 1.5em;">
-			<div class="alert alert-danger" ng-show="pauseRemaining">Clock frozen for <span>{{pauseRemaining}}</span> seconds.</div>
-			<div class="alert alert-info" ng-show="delayRemaining">Begin in  <span>{{delayRemaining}}</span> seconds.</div>
+			<div class="alert alert-danger" ng-visible="pauseRemaining">Clock frozen for <span>{{pauseRemaining}}</span> seconds.</div>
 		</div>
 	</div>
 
