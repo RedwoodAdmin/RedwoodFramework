@@ -196,7 +196,11 @@ Redwood.controller("SubjectCtrl", ["$rootScope", "$scope", "RedwoodSubject", "Sy
 			rs.set_points($scope.earn($scope.myEntry / $scope.tMax, 1));
 		}
 
-		rs.next_period(5);
+		$scope.status.entered = true;
+
+		rs.synchronizationBarrier('next_period').then(function() {
+			rs.next_period(5);
+		});
 	}
 
 	$scope.earn = function(i, j) {

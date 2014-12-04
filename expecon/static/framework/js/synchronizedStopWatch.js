@@ -15,7 +15,7 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 				onComplete = function() {},
 				subjects;
 
-			var tick = 0, t = 0, tickTarget = 0;
+			var tick = 0, tickTarget = 0;
 
 			var timeout, executingTick = false;
 
@@ -31,8 +31,7 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 					resume.then(function() {
 						rs.synchronizationBarrier(prefix + tick, subjects).then(function() {
 							executingTick = false;
-						t = Math.floor(tick / frequency);
-						onTick(tick, t);
+							onTick(tick, tick / frequency, (tickTarget - tick) / frequency);
 							if(tick < tickTarget) {
 								schedule_tick();
 							} else {
