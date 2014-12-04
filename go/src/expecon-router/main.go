@@ -52,10 +52,10 @@ func main() {
 func StartUp(redis_host string, redis_db, port int, ready chan bool) {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	router := NewRouter(redis_host, redis_db)
-	go router.route()
+	go router.Route()
 	log.Println("router routing")
 	websocketHandler := websocket.Handler(func(c *websocket.Conn) {
-		router.handle_ws(c)
+		router.HandleWebsocket(c)
 		c.Close()
 	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

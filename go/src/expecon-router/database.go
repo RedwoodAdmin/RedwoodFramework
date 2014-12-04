@@ -51,7 +51,7 @@ func NewDatabase(redisHost string, redisDB int) (database *Database) {
 
 /* Getting/Setting Session Stuff */
 
-func (db *Database) GetSessionIDs() ([]SessionID, error) {
+func (db *Database) SessionIDs() ([]SessionID, error) {
     sessionsData, err := db.client.Smembers("sessions")
     if err != nil {
         return nil, err
@@ -76,7 +76,7 @@ func (db *Database) GetSessionIDs() ([]SessionID, error) {
     return ids, err
 }
 
-func (db *Database) GetSessionObjectIDs(sessionID SessionID) ([]SessionObjectID, error) {
+func (db *Database) SessionObjectIDs(sessionID SessionID) ([]SessionObjectID, error) {
     key := sessionID.ObjectsKey()
     sessionObjects, err := db.client.Smembers(key)
     if err != nil {
@@ -133,15 +133,15 @@ func (db *Database) getIntData(key string) (int, error) {
     return strconv.Atoi(string(bytes))
 }
 
-func (db *Database) GetPeriod(objectID SessionObjectID) (int, error) {
+func (db *Database) Period(objectID SessionObjectID) (int, error) {
     return db.getIntData(objectID.Key())
 }
 
-func (db *Database) GetGroup(objectID SessionObjectID) (int, error) {
+func (db *Database) Group(objectID SessionObjectID) (int, error) {
     return db.getIntData(objectID.Key())
 }
 
-func (db *Database) GetConfig(objectID SessionObjectID) (*Msg, error) {
+func (db *Database) Config(objectID SessionObjectID) (*Msg, error) {
     bytes, err := db.client.Get(objectID.Key())
     if err != nil {
         return nil, err
@@ -182,7 +182,7 @@ func (db *Database) DeleteSessionObjects(sessionID SessionID) (error) {
 
 /* Getting Messages */
 
-func (db *Database) GetMessages(sessionID SessionID) (chan *Msg, error) {
+func (db *Database) Messages(sessionID SessionID) (chan *Msg, error) {
     // retrive messages in smaller blocks to keep peak memory usage
     // under control when the message digest gets too large
     blockSize := 1000

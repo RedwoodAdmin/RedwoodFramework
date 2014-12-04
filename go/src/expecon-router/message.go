@@ -21,7 +21,7 @@ type Msg struct {
     ack         chan bool
 }
 
-func (msg *Msg) identical_to(otherMsg *Msg) bool {
+func (msg *Msg) IdenticalTo(otherMsg *Msg) bool {
     // Test equality of all properties except for the ack channel
     // some of these comparisons may not be necessary
     return otherMsg != nil &&

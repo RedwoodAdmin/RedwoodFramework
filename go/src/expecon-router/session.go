@@ -17,7 +17,7 @@ type Session struct {
     last_cfg          *Msg
 }
 
-func (s *Session) get_subject(name string) *Subject {
+func (s *Session) Subject(name string) *Subject {
     subject, exists := s.subjects[name]
     if !exists {
         subject = &Subject{name: name}
@@ -43,7 +43,7 @@ func (s *Session) get_subject(name string) *Subject {
     return subject
 }
 
-func (s *Session) recv(msg *Msg) {
+func (s *Session) Receive(msg *Msg) {
     if msg.Key != "__reset__" && msg.Key != "__delete__" {
         if err := s.router.db.SaveMessage(msg); err != nil {
             log.Fatal(err)
@@ -54,7 +54,7 @@ func (s *Session) recv(msg *Msg) {
     }
 }
 
-func (s *Session) reset() {
+func (s *Session) Reset() {
     s.nonce = uuid()
     s.subjects = make(map[string]*Subject)
     s.last_state_update = make(map[string]map[string]*Msg)
@@ -66,12 +66,12 @@ func (s *Session) reset() {
     if s.last_cfg != nil {
         s.last_cfg.Nonce = s.nonce
         s.last_cfg.ack = make(chan bool, 1)
-        s.router.handle_msg(s.last_cfg)
+        s.router.HandleMessage(s.last_cfg)
         <-s.last_cfg.ack
     }
 }
 
-func (s *Session) delete() {
-    s.reset()
+func (s *Session) Delete() {
+    s.Reset()
     delete(s.router.sessions[s.instance], s.id)
 }

@@ -36,7 +36,7 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
     r.db = NewDatabase(redis_host, redis_db)
     // populate the in-memory queues with persisted redis data
 
-    sessionIDs, err := r.db.GetSessionIDs()
+    sessionIDs, err := r.db.SessionIDs()
     if err != nil {
         log.Fatal(err)
     }
@@ -44,8 +44,8 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
     log.Printf("loading %d sessions from redis", len(sessionIDs))
     for _, sessionID := range sessionIDs {
 
-        session := r.get_session(sessionID.instance, sessionID.id)
-        sessionObjectIDs, err := r.db.GetSessionObjectIDs(sessionID)
+        session := r.Session(sessionID.instance, sessionID.id)
+        sessionObjectIDs, err := r.db.SessionObjectIDs(sessionID)
         if err != nil {
             log.Print(err)
         }
@@ -58,19 +58,19 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
 
             switch objectID.objectType {
             case "period":
-                period, err := r.db.GetPeriod(objectID)
+                period, err := r.db.Period(objectID)
                 if err != nil {
                     panic(err)
                 }
                 session.subjects[subject].period = period
             case "group":
-                group, err := r.db.GetGroup(objectID)
+                group, err := r.db.Group(objectID)
                 if err != nil {
                     panic(err)
                 }
                 session.subjects[subject].group = group
             case "config":
-                config, err := r.db.GetConfig(objectID)
+                config, err := r.db.Config(objectID)
                 if err != nil {
                     panic(err)
                 }
@@ -81,7 +81,7 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
     return r
 }
 
-func (r *Router) get_session(instance string, id int) *Session {
+func (r *Router) Session(instance string, id int) *Session {
     instance_sessions, exists := r.sessions[instance]
     if !exists {
         instance_sessions = make(map[int]*Session)
@@ -107,7 +107,7 @@ func (r *Router) get_session(instance string, id int) *Session {
 // handle receives messages on the given websocket connection, decoding them
 // from JSON to a Msg object. It adds a channel to listeners, encoding messages
 // received on the listener channel as JSON, then sending it over the connection.
-func (r *Router) handle_ws(c *websocket.Conn) {
+func (r *Router) HandleWebsocket(c *websocket.Conn) {
     u, err := url.Parse(c.LocalAddr().String())
     if err != nil {
         log.Println(err)
@@ -158,20 +158,20 @@ func (r *Router) handle_ws(c *websocket.Conn) {
     <- ack
 
     log.Printf("STARTED SYNC: %s\n", subject.name);
-    listener.sync()
+    listener.Sync()
     log.Printf("FINISHED SYNC: %s\n", subject.name);
 
     go listener.SendLoop()
     listener.ReceiveLoop();
 }
 
-func (r *Router) handle_msg(msg *Msg) {
+func (r *Router) HandleMessage(msg *Msg) {
     defer func() {
         msg.ack <- true
     }()
     var err error
     msg.Time = time.Now().UnixNano()
-    session := r.get_session(msg.Instance, msg.Session)
+    session := r.Session(msg.Instance, msg.Session)
     if msg.Nonce != session.nonce {
         return
     }
@@ -233,12 +233,12 @@ func (r *Router) handle_msg(msg *Msg) {
             panic(err)
         }
     case "__reset__":
-        session.reset()
+        session.Reset()
     case "__delete__":
-        session.delete()
+        session.Delete()
     }
     if err == nil {
-        session.recv(msg)
+        session.Receive(msg)
     } else {
         errMsg := &Msg{
             Instance: msg.Instance,
@@ -249,31 +249,31 @@ func (r *Router) handle_msg(msg *Msg) {
             Time:     time.Now().UnixNano(),
             Key:      "__error__",
             Value:    err.Error()}
-        session.recv(errMsg)
+        session.Receive(errMsg)
     }
 }
 
 // route listens for incoming messages, routing them to applicable listeners.
 // handles control messages
-func (r *Router) route() {
+func (r *Router) Route() {
     for {
         select {
         case request := <-r.newListeners:
             listener := request.listener
-            session := r.get_session(listener.instance, listener.session_id)
+            session := r.Session(listener.instance, listener.session_id)
             session.listeners[listener.subject.name] = listener
             request.ack <- true
 
         case request := <-r.requestSubject:
-            session := r.get_session(request.instance, request.session)
-            request.response <- session.get_subject(request.name)
+            session := r.Session(request.instance, request.session)
+            request.response <- session.Subject(request.name)
 
         case msg := <-r.messages:
-            r.handle_msg(msg)
+            r.HandleMessage(msg)
 
         case request := <-r.removeListeners:
             listener := request.listener
-            session := r.get_session(listener.instance, listener.session_id)
+            session := r.Session(listener.instance, listener.session_id)
             for id := range session.listeners {
                 if listener == session.listeners[id] {
                     delete(session.listeners, id)

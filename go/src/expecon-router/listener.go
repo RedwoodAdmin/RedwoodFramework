@@ -33,7 +33,7 @@ func NewListener(router *Router, instance string, session_id int, subject *Subje
 // send msg to the given Listener
 // If it fails for any reason, l is added to the remove queue.
 func (l *Listener) Send(msg *Msg) {
-    session := l.router.get_session(l.instance, l.session_id)
+    session := l.router.Session(l.instance, l.session_id)
     if l.match(session, msg) {
         if l.router.removeListeners != nil {
             defer func() {
@@ -75,7 +75,7 @@ func (l *Listener) ReceiveLoop() {
             period := int(v["period"].(float64))
             msgs := make([]*Msg, 0)
 
-            allMessages, err := l.router.db.GetMessages(SessionID{l.instance, l.session_id})
+            allMessages, err := l.router.db.Messages(SessionID{l.instance, l.session_id})
             if err != nil {
                 log.Fatal(err)
             }
@@ -94,8 +94,8 @@ func (l *Listener) ReceiveLoop() {
 }
 
 // push requested messages from queue to w, in between to fictitious start and end messages
-func (l *Listener) sync() {
-    session := l.router.get_session(l.instance, l.session_id)
+func (l *Listener) Sync() {
+    session := l.router.Session(l.instance, l.session_id)
 
     queueStartMessage := &Msg{
         Time: time.Now().UnixNano(),
@@ -104,7 +104,7 @@ func (l *Listener) sync() {
     }
     l.encoder.Encode(queueStartMessage);
 
-    messages, err := l.router.db.GetMessages(SessionID{l.instance, l.session_id})
+    messages, err := l.router.db.Messages(SessionID{l.instance, l.session_id})
     if err != nil {
         log.Fatal(err)
     }
@@ -148,7 +148,7 @@ func (l *Listener) match(session *Session, msg *Msg) bool {
     same_period := msg.Period == l.subject.period || msg.Period == 0
     same_group := msg.Group == l.subject.group || msg.Group == 0
     last_state_update_msg := session.last_state_update[msg.Key][msg.Sender]
-    is_relevant := !msg.StateUpdate || msg.identical_to(last_state_update_msg)
+    is_relevant := !msg.StateUpdate || msg.IdenticalTo(last_state_update_msg)
 
     return control || (session_state && is_relevant && (is_admin || (same_period && same_group))) || (same_period && same_group && is_relevant)
 }
