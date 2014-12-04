@@ -38,7 +38,7 @@ func (l *Listener) Send(msg *Msg) {
         if l.router.removeListeners != nil {
             defer func() {
                 if err := recover(); err != nil {
-                    l.router.removeListeners <- l
+                    l.router.removeListeners <- &ListenerRequest{l, nil}
                 }
             }()
         }
@@ -52,7 +52,6 @@ func (l *Listener) SendLoop() {
         if !ok {
             return
         }
-        //log.Printf("%s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key);
         if err := l.encoder.Encode(msg); err != nil {
             return
         }
@@ -112,7 +111,6 @@ func (l *Listener) sync() {
     for msg := range messages {
         if l.match(session, msg) {
             l.encoder.Encode(&msg)
-            //log.Printf("Sync: %s, %s, %d, %s\n", msg.Sender, l.subject.name, msg.Period, msg.Key)
         }
     }
 

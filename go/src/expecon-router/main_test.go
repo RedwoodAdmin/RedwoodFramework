@@ -77,7 +77,6 @@ func TestSync(t *testing.T) {
 			}
 			finished <- conn
 		}()
-		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 
 	// Drain finished channel

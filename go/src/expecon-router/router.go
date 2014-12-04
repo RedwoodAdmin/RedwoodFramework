@@ -11,20 +11,25 @@ import(
     "log"
 )
 
+type ListenerRequest struct {
+    listener *Listener
+    ack      chan bool
+}
+
 type Router struct {
     messages        chan *Msg
-    newListeners    chan *Listener
+    newListeners    chan *ListenerRequest
     requestSubject  chan *SubjectRequest
-    removeListeners chan *Listener
+    removeListeners chan *ListenerRequest
     sessions        map[string]map[int]*Session
-    db           *Database
+    db              *Database
 }
 
 func NewRouter(redis_host string, redis_db int) (r *Router) {
     r = new(Router)
     r.messages = make(chan *Msg, 100)
-    r.newListeners = make(chan *Listener, 100)
-    r.removeListeners = make(chan *Listener, 100)
+    r.newListeners = make(chan *ListenerRequest, 100)
+    r.removeListeners = make(chan *ListenerRequest, 100)
     r.requestSubject = make(chan *SubjectRequest, 100)
     r.sessions = make(map[string]map[int]*Session)
 
@@ -147,8 +152,11 @@ func (r *Router) handle_ws(c *websocket.Conn) {
     }
 
     listener := NewListener(r, instance, session_id, subject, c)
-    r.newListeners <- listener
-    
+    ack := make(chan bool)
+    r.newListeners <- &ListenerRequest{listener, ack}
+    // wait for listener to be registered before starting sync
+    <- ack
+
     log.Printf("STARTED SYNC: %s\n", subject.name);
     listener.sync()
     log.Printf("FINISHED SYNC: %s\n", subject.name);
@@ -250,21 +258,28 @@ func (r *Router) handle_msg(msg *Msg) {
 func (r *Router) route() {
     for {
         select {
-        case listener := <-r.newListeners:
+        case request := <-r.newListeners:
+            listener := request.listener
             session := r.get_session(listener.instance, listener.session_id)
             session.listeners[listener.subject.name] = listener
+            request.ack <- true
+
         case request := <-r.requestSubject:
             session := r.get_session(request.instance, request.session)
             request.response <- session.get_subject(request.name)
+
         case msg := <-r.messages:
             r.handle_msg(msg)
-        case listener := <-r.removeListeners:
+
+        case request := <-r.removeListeners:
+            listener := request.listener
             session := r.get_session(listener.instance, listener.session_id)
             for id := range session.listeners {
                 if listener == session.listeners[id] {
                     delete(session.listeners, id)
                 }
             }
+            request.ack <- true
         }
     }
 }
