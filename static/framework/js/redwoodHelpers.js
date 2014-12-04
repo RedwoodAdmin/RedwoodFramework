@@ -1,6 +1,17 @@
 
 Redwood.factory("Helpers", function() {
 
+	String.prototype.hashCode = function() {
+		var hash = 0;
+		if (this.length == 0) return hash;
+		for (i = 0; i < this.length; i++) {
+			var char = this.charCodeAt(i);
+			hash = ((hash << 5) - hash) + char;
+			hash = hash & hash; // Convert to 32bit integer
+		}
+		return hash;
+	};
+
 	// return the last element of the array
 	Array.prototype.last = function() {
 		return this.length ? this[this.length - 1] : undefined;
@@ -162,6 +173,14 @@ Redwood
 					});
 				}
 			}
+		};
+	})
+
+	.directive('ngVisible', function () {
+		return function (scope, element, attr) {
+			scope.$watch(attr.ngVisible, function (visible) {
+				element.css('visibility', visible ? 'visible' : 'hidden');
+			});
 		};
 	});
 

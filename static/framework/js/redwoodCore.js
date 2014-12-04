@@ -101,10 +101,11 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 		};
 
 		rw.__ws__.onmessage = function(ws_msg) {
+			if(rw.__pending_reload__)
+				return;
+
 			$rootScope.$apply(function() {
 
-				if(rw.__pending_reload__)
-					return;
 				var msg = JSON.parse(ws_msg.data);
 				if(typeof LOG_MESSAGES !== 'undefined' && LOG_MESSAGES) {
 					console.log(msg.Period
@@ -126,7 +127,14 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 						rw.send(rw.KEY.__page_loaded__);
 					}
 					processSendQueue();
-
+				} else if(rw.__sync__.in_progress) {
+					var key = getMsgId(msg);
+					for(var i = 0; i < rw.__send_queue__.length; i++) {
+						if(rw.__send_queue__[i].key === key) {
+							rw.__send_queue__.splice(i, 1);
+							break;
+						}
+					}
 				}
 
 				rw.__handle_msg__(msg);
@@ -152,40 +160,13 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 	};
 
 	function getMsgId(msg) {
-		return '_' + msg.Period + '_' + msg.Sender + '_' + msg.Key;
+		return '_' + msg.Period + '_' + msg.Sender + '_' + msg.Key + (msg.Value ? '_' + JSON.stringify(msg.Value).hashCode() : '');
 	}
+
 	function processSendQueue() {
-		var sendCounts = {};
-		rw.__send_queue__.map(function(queued) {
-			return rw.convertToMessage(queued.key, queued.value, queued.args);
-		}).forEach(function(msg) {
-			var id = getMsgId(msg);
-			sendCounts[id] = sendCounts[id] || 0;
-			sendCounts[id]++;
-		});
-		var recvCounts = {};
-		rw.recv_queue.forEach(function(msg) {
-			var id = getMsgId(msg);
-			recvCounts[id] = recvCounts[id] || 0;
-			recvCounts[id]++;
-		});
-
-		var sendStack = [];
-		for(var i = rw.__send_queue__.length - 1; i >= 0; i--) {
-			var queued = rw.__send_queue__[i];
-			var msg = rw.convertToMessage(queued.key, queued.value, queued.args);
-			var id = getMsgId(msg);
-			if(sendCounts[id] > (recvCounts[id] || 0)) {
-				sendStack.push(queued);
-				sendCounts[id]--;
-			}
-		}
-
-		while(sendStack.length) {
-			var msg = sendStack.pop();
-			rw.send(msg.key, msg.value, msg.args);
-		}
-
+		rw.__send_queue__.forEach(function(queued) {
+			rw.__ws__.send(JSON.stringify(queued.value));
+		})
 	}
 
 	rw.convertToMessage = function(key, value, args) {
@@ -214,22 +195,26 @@ Redwood.factory("RedwoodCore", ["$compile", "$controller", "$rootScope", "$timeo
 		};
 	};
 
+	rw.__is_queueable__ = function(msg) {
+		return msg.Key !== rw.KEY.__reset__
+			&& msg.Key !== rw.KEY.__delete__
+			&& msg.Key !== rw.KEY.__set_period__
+			&& msg.Key !== rw.KEY.__set_group__
+			&& msg.Key !== rw.KEY.__set_page__
+			&& (msg.Period == 0 || msg.Period == rw.period)
+			&& msg.Sender == rw.user_id;
+	};
+
 	rw.__default_send__ = function(key, value, args) {
 		var msg = rw.convertToMessage(key, value, args);
 		rw.__ws__.send(JSON.stringify(msg));
 		return msg;
 	};
 
-	rw.__is_queueable__ = function(key) {
-		return key !== rw.KEY.__reset__
-			&& key !== rw.KEY.__delete__
-			&& key !== rw.KEY.__set_period__
-			&& key !== rw.KEY.__set_group__;
-	};
-
 	rw.__sync_send__ = function(key, value, args) {
-		if(rw.__is_queueable__(key)) {
-			rw.__send_queue__.push({key: key, value: value, args: args});
+		var msg = rw.convertToMessage(key, value, args);
+		if(rw.__is_queueable__(msg)) {
+			rw.__send_queue__.push({key: getMsgId(msg), value: msg});
 		}
 	};
 
