@@ -100,8 +100,8 @@ func floodRouter(subjectID int, key string, value string, count int) (error) {
 
 // Test Sync between multiple clients
 func TestSync(t *testing.T) {
-	setupRouter()
 	flushDB()
+	setupRouter()
 	// Fill database with 1000 messages
 	msg_count := 50000
 	floodRouter(1, "sync_test", "placeholder", msg_count)
@@ -143,7 +143,31 @@ func TestSync(t *testing.T) {
 }
 
 func TestIntegration(t *testing.T) {
-	setupRouter()
 	flushDB()
+	setupRouter()
 	floodRouter(1, "foo", "bar", 100000)
+}
+
+func BenchmarkThroughput(b *testing.B) {
+	flushDB()
+	setupRouter()
+	// setup dummy clients to sink messages
+	for i := 2; i < 12; i++ {
+		conn, err := setupClient(i)
+		if err != nil {
+			b.Fatal("client setup failed")
+		}
+		go func() {
+			d := json.NewDecoder(conn)
+			for {
+				var msg Msg
+				if err := d.Decode(&msg); err != nil {
+					return
+				}
+			}
+		}()
+	}
+	b.ResetTimer()
+	// flood the router with messages
+	floodRouter(1, "throughput", "testdata", b.N)
 }
