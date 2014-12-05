@@ -20,7 +20,7 @@ type Router struct {
     messages        chan *Msg
     newListeners    chan *ListenerRequest
     requestSubject  chan *SubjectRequest
-    removeListeners chan *ListenerRequest
+    removeListeners chan *Listener
     sessions        map[string]map[int]*Session
     db              *Database
 }
@@ -29,7 +29,7 @@ func NewRouter(redis_host string, redis_db int) (r *Router) {
     r = new(Router)
     r.messages = make(chan *Msg, 100)
     r.newListeners = make(chan *ListenerRequest, 100)
-    r.removeListeners = make(chan *ListenerRequest, 100)
+    r.removeListeners = make(chan *Listener, 100)
     r.requestSubject = make(chan *SubjectRequest, 100)
     r.sessions = make(map[string]map[int]*Session)
 
@@ -237,6 +237,7 @@ func (r *Router) HandleMessage(msg *Msg) {
     case "__delete__":
         session.Delete()
     }
+
     if err == nil {
         session.Receive(msg)
     } else {
@@ -271,15 +272,13 @@ func (r *Router) Route() {
         case msg := <-r.messages:
             r.HandleMessage(msg)
 
-        case request := <-r.removeListeners:
-            listener := request.listener
+        case listener := <-r.removeListeners:
             session := r.Session(listener.instance, listener.session_id)
             for id := range session.listeners {
                 if listener == session.listeners[id] {
                     delete(session.listeners, id)
                 }
             }
-            request.ack <- true
         }
     }
 }

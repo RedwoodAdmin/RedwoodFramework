@@ -37,8 +37,9 @@ func (l *Listener) Send(msg *Msg) {
     if l.match(session, msg) {
         if l.router.removeListeners != nil {
             defer func() {
+                // If send on l.recv fails, then remove the listener
                 if err := recover(); err != nil {
-                    l.router.removeListeners <- &ListenerRequest{l, nil}
+                    l.router.removeListeners <- l
                 }
             }()
         }
@@ -47,6 +48,9 @@ func (l *Listener) Send(msg *Msg) {
 }
 
 func (l *Listener) SendLoop() {
+    defer func() {
+        close(l.recv)
+    }()
     for {
         msg, ok := <- l.recv
         if !ok {

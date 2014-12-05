@@ -49,7 +49,7 @@ func setupClient(clientID int) (*websocket.Conn, error) {
 func TestSync(t *testing.T) {
 	setupRouter()
 	// Make client connections
-	connection_count := 10
+	connection_count := 50
 	finished := make(chan *websocket.Conn)
 	for i := 1; i <= connection_count; i++ {
 		conn, err := setupClient(i); 
