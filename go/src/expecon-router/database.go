@@ -195,27 +195,24 @@ func (db *Database) Messages(sessionID SessionID) (chan *Msg, error) {
 
     log.Printf("Fetching %d messages from Redis into %p", messageCount, messages)
     go func() {
+        defer close(messages)
         for i := 0; i < messageCount; i += blockSize {
             limit := i + blockSize
             if limit >= messageCount {
                 limit = messageCount
             }
-            log.Printf("Fetching messages %d-%d into %p", i, limit - 1, messages)
             msgData, err := db.client.Lrange(sessionID.Key(), i, limit - 1)
             if err != nil {
-                close(messages)
                 return
             }
             for _, bytes := range msgData {
                 var msg Msg
                 if err = json.Unmarshal(bytes, &msg); err != nil {
-                    close(messages)
                     return
                 }
                 messages <- &msg
             }
         }
-        close(messages)
     }()
 
     return messages, nil
