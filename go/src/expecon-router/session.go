@@ -83,9 +83,7 @@ func (s *Session) Reset() {
     // replay last config
     if s.last_cfg != nil {
         s.last_cfg.Nonce = s.nonce
-        s.last_cfg.ack = make(chan bool, 1)
         s.router.HandleMessage(s.last_cfg)
-        <-s.last_cfg.ack
     }
 }
 

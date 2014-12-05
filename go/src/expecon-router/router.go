@@ -157,9 +157,6 @@ func (r *Router) HandleWebsocket(c *websocket.Conn) {
 }
 
 func (r *Router) HandleMessage(msg *Msg) {
-    defer func() {
-        msg.ack <- true
-    }()
     var err error
     msg.Time = time.Now().UnixNano()
     session := r.Session(msg.Instance, msg.Session)

@@ -18,7 +18,6 @@ type Msg struct {
     ClientTime  uint64
     Key         string
     Value       interface{}
-    ack         chan bool
 }
 
 func (msg *Msg) IdenticalTo(otherMsg *Msg) bool {

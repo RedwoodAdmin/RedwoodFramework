@@ -93,9 +93,7 @@ func (l *Listener) ReceiveLoop() {
             }
             l.recv <- bytes
         default:
-            msg.ack = make(chan bool)
             l.router.messages <- &msg
-            <-msg.ack
         }
     }
 }
