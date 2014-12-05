@@ -15,15 +15,17 @@ var once sync.Once
 var redisHost = "127.0.0.1:6379"
 var redisDB = 1
 
+func flushDB() {
+	client := &redis.Client{Addr: redisHost, Db: redisDB}
+	client.Flush(false)
+}
+
 func setupRouter() {
 	once.Do(func() {
 		ready := make(chan bool)
 		go StartUp(redisHost, redisDB, 8080, ready)
 		<- ready
 	})
-	// clear database
-	client := &redis.Client{Addr: redisHost, Db: redisDB}
-	client.Flush(false)
 }
 
 func setupClient(clientID int) (*websocket.Conn, error) {
@@ -44,12 +46,67 @@ func setupClient(clientID int) (*websocket.Conn, error) {
 	}
 }
 
-// Test sync between multiple clients
-// only synchronizes __register__ messages
+func floodRouter(subjectID int, key string, value string, count int) (error) {
+	conn, err := setupClient(subjectID); 
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	nonce_chan := make(chan string)
+	finished_chan := make(chan bool)
+	go func() {
+		received_count := 0
+		d := json.NewDecoder(conn)
+		for {
+			var msg Msg
+			if err := d.Decode(&msg); err != nil {
+				return
+			}
+			if msg.Key == "__queue_start__" {
+				nonce_chan <- msg.Nonce
+			}
+			if msg.Key == key {
+				received_count += 1
+				if received_count == count {
+					finished_chan <- true
+				}
+			}
+		}
+	}()
+	nonce := <-nonce_chan
+	e := json.NewEncoder(conn)
+	for i := 0; i < count; i++ {
+		msg := Msg{
+			Instance: "redwood",
+			Session: 1,
+			Nonce: nonce,
+			Sender: "1",
+			Period: 0,
+			Group: 0,
+			StateUpdate: false,
+			Time: 0,
+			ClientTime: 0,
+			Key: key,
+			Value: value,
+		}
+		if err := e.Encode(msg); err != nil {
+			return err
+		}
+	}
+	<- finished_chan
+	return nil
+}
+
+// Test Sync between multiple clients
 func TestSync(t *testing.T) {
 	setupRouter()
+	flushDB()
+	// Fill database with 1000 messages
+	msg_count := 50000
+	floodRouter(1, "sync_test", "placeholder", msg_count)
 	// Make client connections
-	connection_count := 50
+	connection_count := 10
 	finished := make(chan *websocket.Conn)
 	for i := 1; i <= connection_count; i++ {
 		conn, err := setupClient(i); 
@@ -57,7 +114,7 @@ func TestSync(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			registered := make(chan int)
+			sync_messages := make(chan int)
 			go func() {
 				d := json.NewDecoder(conn)
 				for {
@@ -65,15 +122,14 @@ func TestSync(t *testing.T) {
 					if err := d.Decode(&msg); err != nil {
 						return
 					}
-					if msg.Key == "__register__" {
-						registered <- 1
+					if msg.Key == "sync_test" {
+						sync_messages <- 1
 					}
 				}
 			}()
-			// Wait for all clients to register by
-			// draining registered channel
-			for j := 1; j <= connection_count; j++ {
-				<- registered
+			// Wait for entire message digest to sync
+			for j := 1; j <= msg_count; j++ {
+				<- sync_messages
 			}
 			finished <- conn
 		}()
@@ -88,48 +144,6 @@ func TestSync(t *testing.T) {
 
 func TestIntegration(t *testing.T) {
 	setupRouter()
-	ws, err := setupClient(1); 
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Println("Connect to router via websocket!")
-	nonce_chan := make(chan string)
-	go func() {
-		d := json.NewDecoder(ws)
-		for {
-			var msg Msg
-			if err := d.Decode(&msg); err != nil {
-				return
-			}
-			t.Log(msg)
-			if msg.Key == "__queue_start__" {
-				nonce_chan <- msg.Nonce
-			}
-		}
-	}()
-	nonce := <-nonce_chan
-	e := json.NewEncoder(ws)
-	MSGS := 100000
-	for i := 0; i < MSGS; i++ {
-		if i % 1000 == 0 {
-			log.Printf("Sending message %d of %d", i, MSGS)
-		}
-		msg := Msg{
-			Instance: "redwood",
-			Session: 1,
-			Nonce: nonce,
-			Sender: "1",
-			Period: 0,
-			Group: 0,
-			StateUpdate: false,
-			Time: 0,
-			ClientTime: 0,
-			Key: "foo",
-			Value: "bar",
-		}
-		if err := e.Encode(msg); err != nil {
-			t.Fatal(err)
-		}
-	}
-	ws.Close()
+	flushDB()
+	floodRouter(1, "foo", "bar", 100000)
 }
