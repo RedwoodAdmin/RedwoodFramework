@@ -4,6 +4,7 @@ import(
     "time"
     "log"
     "encoding/json"
+    "fmt"
 )
 
 type Session struct {
@@ -16,6 +17,21 @@ type Session struct {
     subjects          map[string]*Subject
     last_state_update map[string]map[string]*Msg
     last_cfg          *Msg
+}
+
+func NewSession(r *Router, instance string, id int) (s *Session) {
+    s = &Session{
+        db_key:            fmt.Sprintf("session:%s:%d", instance, id),
+        router:            r,
+        instance:          instance,
+        id:                id,
+        nonce:             uuid(),
+        listeners:         make(map[string]*Listener),
+        subjects:          make(map[string]*Subject),
+        last_state_update: make(map[string]map[string]*Msg),
+        last_cfg:          nil,
+    }
+    return s
 }
 
 func (s *Session) Subject(name string) *Subject {

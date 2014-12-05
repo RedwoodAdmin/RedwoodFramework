@@ -89,16 +89,7 @@ func (r *Router) Session(instance string, id int) *Session {
     }
     session, exists := instance_sessions[id]
     if !exists {
-        session = &Session{
-            db_key:            fmt.Sprintf("session:%s:%d", instance, id),
-            router:            r,
-            instance:          instance,
-            id:                id,
-            nonce:             uuid(),
-            listeners:         make(map[string]*Listener),
-            subjects:          make(map[string]*Subject),
-            last_state_update: make(map[string]map[string]*Msg),
-        }
+        session = NewSession(r, instance, id)
         instance_sessions[id] = session
     }
     return session
