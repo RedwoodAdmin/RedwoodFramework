@@ -33,12 +33,7 @@ func (s *Session) Subject(name string) *Subject {
             Period:   0,
             Group:    0,
         }
-        if err := s.router.db.SaveMessage(msg); err != nil {
-            log.Fatal(err)
-        }
-        for id := range s.listeners {
-            s.listeners[id].Send(msg)
-        }
+        s.Receive(msg)
     }
     return subject
 }
