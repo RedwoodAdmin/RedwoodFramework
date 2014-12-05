@@ -12,7 +12,8 @@ type Listener struct {
     instance   string
     session_id int
     subject    *Subject
-    recv       chan *Msg
+    recv       chan []byte
+    conn       *websocket.Conn
     encoder    *json.Encoder
     decoder    *json.Decoder
 }
@@ -23,7 +24,8 @@ func NewListener(router *Router, instance string, session_id int, subject *Subje
         instance:   instance,
         session_id: session_id,
         subject:    subject,
-        recv:       make(chan *Msg, 100),
+        recv:       make(chan []byte, 100),
+        conn:       connection,
         encoder:    json.NewEncoder(connection),
         decoder:    json.NewDecoder(connection),
     }
@@ -32,19 +34,16 @@ func NewListener(router *Router, instance string, session_id int, subject *Subje
 
 // send msg to the given Listener
 // If it fails for any reason, l is added to the remove queue.
-func (l *Listener) Send(msg *Msg) {
-    session := l.router.Session(l.instance, l.session_id)
-    if l.match(session, msg) {
-        if l.router.removeListeners != nil {
-            defer func() {
-                // If send on l.recv fails, then remove the listener
-                if err := recover(); err != nil {
-                    l.router.removeListeners <- l
-                }
-            }()
-        }
-        l.recv <- msg
+func (l *Listener) Send(rawMessage []byte) {
+    if l.router.removeListeners != nil {
+        defer func() {
+            // If send on l.recv fails, then remove the listener
+            if err := recover(); err != nil {
+                l.router.removeListeners <- l
+            }
+        }()
     }
+    l.recv <- rawMessage
 }
 
 func (l *Listener) SendLoop() {
@@ -56,7 +55,7 @@ func (l *Listener) SendLoop() {
         if !ok {
             return
         }
-        if err := l.encoder.Encode(msg); err != nil {
+        if _, err := l.conn.Write(msg)/*l.encoder.Encode(msg)*/; err != nil {
             return
         }
     }
@@ -88,7 +87,11 @@ func (l *Listener) ReceiveLoop() {
                     msgs = append(msgs, msg)
                 }
             }
-            l.recv <- &Msg{Key: "__get_period__", Value: msgs}
+            bytes, err := json.Marshal(&Msg{Key: "__get_period__", Value: msgs})
+            if err != nil {
+                log.Fatal("could not marshal __get_period__ message")
+            }
+            l.recv <- bytes
         default:
             msg.ack = make(chan bool)
             l.router.messages <- &msg

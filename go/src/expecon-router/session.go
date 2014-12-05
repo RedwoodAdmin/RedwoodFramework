@@ -3,6 +3,7 @@ package main
 import(
     "time"
     "log"
+    "encoding/json"
 )
 
 type Session struct {
@@ -44,8 +45,14 @@ func (s *Session) Receive(msg *Msg) {
             log.Fatal(err)
         }
     }
-    for id := range s.listeners {
-        s.listeners[id].Send(msg)
+    bytes, err := json.Marshal(msg)
+    if err != nil {
+        log.Fatal(err) // not really a good idea to fatal here
+    }
+    for _, listener := range s.listeners {
+        if listener.match(s, msg) {
+            listener.Send(bytes)
+        }
     }
 }
 
