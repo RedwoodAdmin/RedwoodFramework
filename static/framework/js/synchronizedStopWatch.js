@@ -23,7 +23,7 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 			resumed.resolve();
 			var resume = resumed.promise;
 
-			function executeTick() {
+			function executeTick(thenStop) {
 				if(!executingTick) {
 					executingTick = true;
 					$timeout.cancel(timeout);
@@ -33,7 +33,7 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 							executingTick = false;
 							onTick(tick, tick / frequency, (tickTarget - tick) / frequency);
 							if(tick < tickTarget) {
-								schedule_tick();
+								if(!thenStop) schedule_tick();
 							} else {
 								onComplete();
 							}
@@ -103,12 +103,21 @@ Redwood.factory('SynchronizedStopWatch', ['$q', '$rootScope', '$timeout', 'Redwo
 				start: function() {
 					if(!timeout && !executingTick && tick < tickTarget) {
 						if(tick == 0) {
-							$rootScope.$evalAsync(executeTick);
+							$rootScope.$evalAsync(function() {
+								executeTick();
+							});
 						} else {
 							schedule_tick();
 						}
 					}
-					return api;
+				},
+
+				doNextTick: function() {
+					if(!timeout && !executingTick && tick < tickTarget) {
+						$rootScope.$evalAsync(function() {
+							executeTick(true);
+						});
+					}
 				},
 
 				pause: function() {
