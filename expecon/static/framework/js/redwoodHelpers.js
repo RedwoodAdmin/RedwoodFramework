@@ -162,12 +162,13 @@ Redwood
 	.directive("keyPress", function() {
 		return {
 			restrict: 'E',
+			scope: false,
 			link: function($scope, element, attrs) {
 				if(attrs.keyCode && attrs.callback) {
 					$(document).keydown(function(evt) {
 						if(evt.keyCode == attrs.keyCode) {
-							$scope.$parent.$apply(function() {
-								$scope.$parent.$eval(attrs.callback);
+							$scope.$apply(function() {
+								$scope.$eval(attrs.callback);
 							});
 						}
 					});
