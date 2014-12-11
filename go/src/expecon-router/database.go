@@ -183,7 +183,7 @@ func (db *Database) DeleteSessionObjects(sessionID SessionID) (error) {
 /* Getting Messages */
 
 func (db *Database) Messages(sessionID SessionID) (chan *Msg, error) {
-    // retrive messages in smaller blocks to keep peak memory usage
+    // retrieve messages in smaller blocks to keep peak memory usage
     // under control when the message digest gets too large
     blockSize := 1000
     messageCount, err := db.client.Llen(sessionID.Key())

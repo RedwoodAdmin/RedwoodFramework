@@ -55,7 +55,7 @@ func (l *Listener) SendLoop() {
         if !ok {
             return
         }
-        if _, err := l.conn.Write(msg)/*l.encoder.Encode(msg)*/; err != nil {
+        if _, err := l.conn.Write(msg); err != nil {
             return
         }
     }
