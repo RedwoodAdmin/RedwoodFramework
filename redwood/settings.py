@@ -7,7 +7,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 app_config = json.load(open(os.path.join(BASE_DIR, 'apache/config.json')))
 
 URL_PREFIX = app_config['URL_PREFIX']
-LOGIN_URL = URL_PREFIX + '/login/'
+LOGIN_URL = URL_PREFIX + '/admin/login/'
 
 DEBUG = app_config['DEBUG']
 TEMPLATE_DEBUG = DEBUG
