@@ -1,17 +1,17 @@
 {
     "DEBUG": false,
     "URL_PREFIX": "",
-	"ALLOWED_HOSTS": ["*"],
+    "ALLOWED_HOSTS": ["*"],
     "SECRET_KEY": "c%s)0%=k2*fsqbaqg6p359+frty#p0m0=%h3ek!ce+k_xo2x2l",
     "DATABASES" : {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": "C:/Users/User/Desktop/Projects/redwood/redwood.db",
+            "NAME": "/var/www/redwood/redwood.db",
             "USER": "",
             "PASSWORD": "",
             "HOST": "",
             "PORT": ""
         }
     },
-    "logfile": "C:/Users/User/Desktop/Projects/redwood/log.txt"
+    "logfile": "/var/www/redwood/log.txt"
 }

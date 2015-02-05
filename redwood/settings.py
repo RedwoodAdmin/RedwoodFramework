@@ -84,7 +84,7 @@ STATICFILES_FINDERS = (
 )
 
 # Make this unique, and don't share it with anybody.
-SECRET_KEY = 'c%s)0%=k2*fsqbaqg6p359+frty#p0m0=%h3ek!ce+k_xo2x2l'
+SECRET_KEY = app_config['SECRET_KEY']
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
