@@ -157,7 +157,16 @@ def download_experiment(request, experiment):
 '''
 @login_required	
 def upload_experiment(request, experiment):
-	experiment = get_object_or_404(Experiment, pk=experiment)
+	if experiment == 'add':
+		# If this is a new experiment, create it
+		name = 'Experiment %d' % len(Experiment.objects.all())
+		experimenter = User.objects.first()
+		experiment = Experiment(name=name, experimenter=experimenter)
+		experiment.save()
+	else:
+		# If this experiment is already saved, retreive it
+		experiment = get_object_or_404(Experiment, pk=experiment)
+	
 	if request.method == 'POST':
 		if 'file' not in request.FILES:
 			return HttpResponse(status=405)

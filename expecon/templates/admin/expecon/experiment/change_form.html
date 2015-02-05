@@ -1,31 +1,74 @@
 {% extends "admin/expecon/change_form.html" %}
 {% load i18n %}
 
+{% block extrahead %}
+	{{block.super}}
+	<style type="text/css">
+		.experiment-edit-container {
+			border-top: 1px solid #CCC;
+			border-right: 1px solid #CCC;
+			border-left: 1px solid #CCC;
+		}
+
+		.experiment-edit-buttons {
+			margin: 0;
+			padding: 0;
+		}
+
+		.experiment-edit-buttons li {
+			float: left;
+			list-style: none;
+			border-right: 1px solid #CCC;
+			padding: 5px;
+		}
+
+		.experiment-edit-buttons li:last-child {
+			border: none;
+		}
+
+		.experiment-edit-buttons form input {
+			margin: 0;
+			padding: 0;
+		}
+
+	</style>
+	<script type="text/javascript">
+		$(function(){
+			$("#experiment-upload-chooser").on("change", function() {
+				console.log("upload dat shit");
+				$("#experiment-upload-form").submit();
+			});
+		});
+ 	</script>
+{% endblock %}
+
 {% block object-tools %}
 	{{ block.super }}
-	<div style="border-top: 1px solid #CCC; border-right: 1px solid #CCC; border-left: 1px solid #CCC;">
-		<ul style="margin: 0;">
-			<li style="list-style: none; float: left; border-right: 1px solid #CCC;">
-				<form">
+	<div class="experiment-edit-container">
+		<ul class="experiment-edit-buttons">
+			<li>
 				<form action="clone" method="POST">
 					{% csrf_token %}
 					<button class="btn" type="submit">Clone Experiment</button>
 				</form>
 			</li>
-			<li style="list-style: none; float: left; border-right: 1px solid #CCC;">
+			<li>
 				<form action="download" method="GET">
 					{% csrf_token %}
 					<button class="btn" type="submit">Download Experiment</button>
 				</form>
 			</li>
-			<li style="list-style: none; float: left;">
+			<li>
 				<form
+					id="experiment-upload-form"
 					action="upload"
 					method="POST"
 					enctype="multipart/form-data">
 					{% csrf_token %}
-					<input name="file" type="file" />
-					<button class="btn" type="submit">Upload Experiment</button>
+					<label>
+						Upload Experiment:
+						<input id="experiment-upload-chooser" name="file" type="file"/>
+					</label>
 				</form>
 			</li>
 		</ul>
