@@ -89,7 +89,11 @@ class Page(models.Model):
 				template = 'default_start_page.html'
 			elif self.name == 'Finish':
 				template = 'default_finish_page.html'
-			self.html = loader.render_to_string(template, {'name': self.name, 'loadverbatim': '{% load verbatim %}', 'verbatim': '{% verbatim %}', 'endverbatim': '{% endverbatim %}'})
+			self.html = loader.render_to_string(template, {
+				'name': self.name,
+				'verbatim': '{% verbatim %}',
+				'endverbatim': '{% endverbatim %}'
+			})
 		if self.js.strip() == "":
 			template = 'default_page.js'
 			if self.name == 'Wait':

@@ -1,4 +1,4 @@
-{% load verbatim %}{% verbatim %}
+{% verbatim %}
 body {
   padding-top: 73px;
 }
