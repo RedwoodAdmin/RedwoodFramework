@@ -1,3 +1,5 @@
+##Redwood Experiment Framework
+
 Welcome to the Redwood experiment framework. Redwood is a software system that allows Economics researchers to develop web-based interactive games for experimental purposes. Experimental games are developed by writing JavaScript and HTML code that runs in a web browser. During the execution of an experiment, each subject uses a web browser, such as Chrome, to interact with the game and the other subjects.
 
 The fact that Redwood uses standard web technologies allows it to be extremely flexible, since essentially anything (from libraries and widgets, to images and graphs) that can be used in any normal website/web-application can be used in a Redwood experiment. What Redwood provides is a system to create, store, and run experiments as well as all the standard functionality that is required by all experiments including inter-subject communication and synchronization, data logging, etc.
